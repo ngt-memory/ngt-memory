@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "ngt-memory"
+version = "0.23.0"
+description = "Persistent memory layer for LLM applications — neuroplastic graph-based external memory"
+readme = "README_API.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Anton", email = "your@email.com" }
+]
+keywords = [
+    "llm", "memory", "ai", "openai", "chatbot",
+    "retrieval", "vector-store", "persistent-memory",
+    "conversational-ai", "langchain"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.10"
+
+dependencies = [
+    "torch>=2.0.0",
+    "numpy>=1.24.0",
+    "openai>=1.0.0",
+]
+
+[project.optional-dependencies]
+api = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+]
+concepts = [
+    "scikit-learn>=1.3.0",
+]
+all = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "scikit-learn>=1.3.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "httpx>=0.27.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/ngt-memory/ngt-memory"
+Repository = "https://github.com/ngt-memory/ngt-memory"
+Documentation = "https://github.com/ngt-memory/ngt-memory#readme"
+"Bug Tracker" = "https://github.com/ngt-memory/ngt-memory/issues"
+
+[project.scripts]
+ngt-api = "api.main:app"
+
+[tool.setuptools.packages.find]
+include = ["ngt*", "api*"]
+exclude = ["tests*", "experiments*", "results*", "docs*", "notebooks*"]
+
+[tool.setuptools.package-data]
+"ngt" = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
