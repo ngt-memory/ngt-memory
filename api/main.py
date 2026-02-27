@@ -35,6 +35,9 @@ from api.models import (
     SessionStatsResponse, HealthResponse,
 )
 from api.session_store import SessionStore
+from api.billing.key_manager import KeyManager
+from api.billing.middleware import BillingMiddleware
+from api.billing.stripe_handler import router as billing_router
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -48,6 +51,7 @@ logger = logging.getLogger("ngt_api")
 
 OPENAI_API_KEY    = os.environ.get("OPENAI_API_KEY", "")
 API_SECRET_KEY    = os.environ.get("NGT_API_SECRET", "")  # опционально: защита endpoint'ов
+BILLING_ENABLED   = os.environ.get("NGT_BILLING_ENABLED", "false").lower() == "true"
 CHAT_MODEL        = os.environ.get("NGT_CHAT_MODEL", "gpt-4o-mini")
 EMBEDDING_MODEL   = os.environ.get("NGT_EMBEDDING_MODEL", "text-embedding-3-small")
 MEMORY_TOP_K      = int(os.environ.get("NGT_MEMORY_TOP_K", "5"))
@@ -115,6 +119,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Billing (Stripe) ─────────────────────────────────────────────────────────
+
+if BILLING_ENABLED:
+    _km = KeyManager()
+    app.add_middleware(BillingMiddleware, key_manager=_km, enabled=True)
+    app.include_router(billing_router)
+    logger.info("Billing ENABLED — API keys + rate limits active")
+else:
+    logger.info("Billing DISABLED — open access (dev mode)")
 
 # ── Auth (опциональная) ───────────────────────────────────────────────────────
 
