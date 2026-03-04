@@ -3,7 +3,7 @@
 > Persistent memory layer for LLM applications — drop-in REST API.
 
 [![Version](https://img.shields.io/badge/version-0.23.0-blue)](https://github.com/ngt-memory/ngt-memory)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
 
 ---
@@ -346,7 +346,7 @@ docker-compose up -d
 
 ## License
 
-MIT — free for commercial and personal use.
+Apache 2.0 — free for commercial and personal use.
 
 ---
 
