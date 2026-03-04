@@ -52,9 +52,7 @@ results/
 cloud/
 
 # Внутренняя документация (не для публикации)
-docs/TRANSITION_BRIEF.md
-docs/RUNPOD_MIGRATION_SPEC.md
-docs/PROJECT_OVERVIEW.md
+docs/
 
 # Тесты (опционально оставить — показывает качество кода)
 # tests/
