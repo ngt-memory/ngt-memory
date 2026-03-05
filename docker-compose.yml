@@ -5,11 +5,11 @@ services:
     build: .
     container_name: ngt-memory-api
     ports:
-      - "8000:8000"
+      - "9190:9190"
     env_file:
       - .env
     environment:
-      - NGT_CHAT_MODEL=${NGT_CHAT_MODEL:-gpt-4o-mini}
+      - NGT_CHAT_MODEL=${NGT_CHAT_MODEL:-gpt-5-nano}
       - NGT_EMBEDDING_MODEL=${NGT_EMBEDDING_MODEL:-text-embedding-3-small}
       - NGT_MEMORY_TOP_K=${NGT_MEMORY_TOP_K:-5}
       - NGT_MEMORY_THRESHOLD=${NGT_MEMORY_THRESHOLD:-0.25}
@@ -18,7 +18,7 @@ services:
       - NGT_MAX_SESSIONS=${NGT_MAX_SESSIONS:-100}
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:9190/health"]
       interval: 30s
       timeout: 10s
       retries: 3
