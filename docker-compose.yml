@@ -18,7 +18,7 @@ services:
       - NGT_MAX_SESSIONS=${NGT_MAX_SESSIONS:-100}
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9190/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9190/health')"]
       interval: 30s
       timeout: 10s
       retries: 3

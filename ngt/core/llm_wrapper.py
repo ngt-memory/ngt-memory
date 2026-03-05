@@ -31,6 +31,9 @@ from openai import OpenAI
 
 from ngt.core.llm_memory import NGTMemoryForLLM
 
+# Модели, требующие max_completion_tokens вместо max_tokens
+_NEW_API_PREFIXES = ("gpt-5", "o1", "o3", "o4")
+
 
 class NGTMemoryLLMWrapper:
     """
@@ -123,6 +126,16 @@ class NGTMemoryLLMWrapper:
             "latency_retrieve_ms":  [],
             "latency_store_ms":     [],
         }
+
+    # ── LLM helpers ──────────────────────────────────────────────────
+
+    def _chat_kwargs(self, max_tokens: int = 512) -> dict:
+        """Возвращает kwargs для chat.completions.create с учётом модели.
+        Reasoning-модели (gpt-5*, o1, o3, o4) используют токены на 'думание',
+        поэтому нужен больший лимит и max_completion_tokens вместо max_tokens."""
+        if any(self.model.startswith(p) for p in _NEW_API_PREFIXES):
+            return {"max_completion_tokens": max(max_tokens, 4096)}
+        return {"temperature": 0.3, "max_tokens": max_tokens}
 
     # ── Embedding ─────────────────────────────────────────────────────
 
@@ -234,8 +247,7 @@ class NGTMemoryLLMWrapper:
         completion = self.client.chat.completions.create(
             model=self.model,
             messages=messages,
-            temperature=0.3,
-            max_tokens=512,
+            **self._chat_kwargs(512),
         )
         chat_ms = (time.perf_counter() - t0) * 1000
         self._stats["latency_chat_ms"].append(chat_ms)
@@ -283,8 +295,7 @@ class NGTMemoryLLMWrapper:
         completion = self.client.chat.completions.create(
             model=self.model,
             messages=messages,
-            temperature=0.3,
-            max_tokens=512,
+            **self._chat_kwargs(512),
         )
         chat_ms = (time.perf_counter() - t0) * 1000
 
