@@ -21,9 +21,10 @@ Instead of forgetting everything between conversations, the LLM remembers:
 
 | Mode | Factual consistency (0-3) | Keyword hit |
 |------|--------------------------|-------------|
-| **NGT Memory** | **2.44 / 3** | **57%** |
-| No memory | 1.33 / 3 | 27% |
-| **Δ improvement** | **+1.11 (+83%)** | **+30pp** |
+| **NGT Memory (graph)** | **2.33 / 3** | **44%** |
+| **NGT Memory (emb)** | **2.44 / 3** | **44%** |
+| No memory | 1.22 / 3 | 27% |
+| **Δ improvement** | **+1.22 (+100%)** | **+17pp** |
 
 Real example — **without memory**:
 > User: "What restaurants in Kyoto would you recommend?"
@@ -51,11 +52,13 @@ cp .env.example .env
 # Edit .env: set OPENAI_API_KEY=sk-...
 
 # 4. Start
-uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn api.main:app --host 0.0.0.0 --port 9190 --reload
 ```
 
-API доступен на: http://localhost:8000
-Swagger UI: http://localhost:8000/docs
+API доступен на: http://localhost:9190
+Swagger UI: http://localhost:9190/docs
+
+**Live API:** https://ngt-memory.ru/api/docs
 
 ### Option 2: Docker (recommended for production)
 
@@ -102,7 +105,7 @@ Sends a message to the LLM. Automatically retrieves relevant memories and inject
 
 **cURL example:**
 ```bash
-curl -X POST http://localhost:8000/chat \
+curl -X POST http://localhost:9190/chat \
   -H "Content-Type: application/json" \
   -d '{"message": "My name is Anton and I am allergic to penicillin.", "session_id": "demo"}'
 ```
@@ -201,7 +204,7 @@ Direct semantic search without LLM call. Useful for building custom memory-augme
   "status": "ok",
   "version": "0.23.0",
   "active_sessions": 3,
-  "model": "gpt-4o-mini",
+  "model": "gpt-5-nano",
   "embedding_model": "text-embedding-3-small"
 }
 ```
@@ -227,7 +230,7 @@ Sessions expire after `NGT_SESSION_TTL` seconds of inactivity (default: 1 hour).
 ```python
 import httpx
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = "http://localhost:9190"
 SESSION = "my_user"
 
 client = httpx.Client(base_url=BASE_URL)
@@ -257,7 +260,7 @@ print(f"Memories used: {r.json()['memories_count']}")
 |----------|---------|-------------|
 | `OPENAI_API_KEY` | *required* | OpenAI API key |
 | `NGT_API_SECRET` | *(empty)* | Optional API protection key |
-| `NGT_CHAT_MODEL` | `gpt-4o-mini` | OpenAI chat model |
+| `NGT_CHAT_MODEL` | `gpt-5-nano` | OpenAI chat model (supports reasoning models) |
 | `NGT_EMBEDDING_MODEL` | `text-embedding-3-small` | Embedding model |
 | `NGT_MEMORY_TOP_K` | `5` | Memories injected per turn |
 | `NGT_MEMORY_THRESHOLD` | `0.25` | Min cosine score to include memory |
@@ -276,19 +279,20 @@ User request
      ↓
 OpenAI Embeddings (text-embedding-3-small)  ~700ms
      ↓
-NGT Memory Retrieve (cosine + graph boost)  ~2ms
+NGT Memory Retrieve (cosine + graph boost)  ~2-3ms
      ↓
 System prompt + [MEMORY CONTEXT] injection
      ↓
-OpenAI Chat (gpt-4o-mini)                  ~1500ms
+OpenAI Chat (gpt-5-nano)                   ~3000-8000ms
      ↓
 Store user + assistant → NGT Memory        ~1ms
      ↓
 Response
 ```
 
-**NGT overhead: ~2ms** (excluding embedding API).
-The only latency cost is the OpenAI embedding call (~700ms), which can be eliminated with local embeddings.
+**NGT overhead: ~2-3ms** (excluding API calls).
+Note: Reasoning models (gpt-5-nano, o1, o3) use internal thinking tokens,
+so total latency is higher than traditional models like gpt-4o-mini (~1500ms).
 
 ---
 
@@ -307,13 +311,22 @@ This enables **cross-session recall**: ask about "restaurants" → retrieves "ve
 
 ## Performance
 
-From Exp 40 benchmarks (NGT v0.20.0):
+From Exp 40 benchmarks (NGT v0.20.0, CPU only):
 
 | Operation | Throughput | Latency |
-|-----------|-----------|---------|
+|-----------|-----------|--------|
 | store() | 42,000 / sec | 0.024 ms |
 | retrieve() | 6,000 / sec | 0.17 ms |
 | Memory footprint | — | ~2.4 MB / 1000 entries |
+
+End-to-end retrieval (Exp 44, via API with OpenAI embeddings):
+
+| Scenario | avg_retrieve_ms | avg_embed_ms |
+|----------|----------------|-------------|
+| Medical assistant | 3.5 ms | 1069 ms |
+| Personal assistant | 1.8 ms | 867 ms |
+| Tech support | 2.3 ms | 357 ms |
+| **Average** | **2.5 ms** | **764 ms** |
 
 ---
 
