@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Data (large files)
+data/
+*.tar.gz
+*.zip
+*.pkl
+*.pt
+*.pth
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# !! SECRETS — никогда не коммитить !!
+.env
+.env.local
+.env.production
+.cloud_state.json
+
+# Jupyter
+.ipynb_checkpoints/
+notebooks/
+
+# Внутренние эксперименты (не для публикации)
+experiments/
+
+# Результаты экспериментов (большие файлы, не нужны пользователям)
+results/
+
+# RunPod / облачная инфраструктура (приватное)
+cloud/
+
+# Внутренняя документация (не для публикации)
+docs/
+
+# Тесты (опционально оставить — показывает качество кода)
+# tests/
+
+# pytest кеш
+.pytest_cache/
+
+# Архив внутренних файлов (не для публикации)
+_archive/
