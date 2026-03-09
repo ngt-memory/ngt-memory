@@ -16,7 +16,6 @@ Endpoints:
     docker-compose up
 """
 
-import os
 import time
 import logging
 from contextlib import asynccontextmanager
@@ -27,6 +26,7 @@ from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from api.config import settings
 from api.models import (
     ChatRequest, ChatResponse, MemoryItem,
     StoreRequest, StoreResponse,
@@ -38,29 +38,12 @@ from api.session_store import SessionStore
 from api.billing.key_manager import KeyManager
 from api.billing.middleware import BillingMiddleware
 from api.billing.stripe_handler import router as billing_router
+from api.logging_config import setup_logging, RequestIdMiddleware, get_request_id
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+setup_logging(level=settings.log_level, json_format=settings.log_json)
 logger = logging.getLogger("ngt_api")
-
-# ── Config from env ───────────────────────────────────────────────────────────
-
-OPENAI_API_KEY    = os.environ.get("OPENAI_API_KEY", "")
-API_SECRET_KEY    = os.environ.get("NGT_API_SECRET", "")  # опционально: защита endpoint'ов
-BILLING_ENABLED   = os.environ.get("NGT_BILLING_ENABLED", "false").lower() == "true"
-CHAT_MODEL        = os.environ.get("NGT_CHAT_MODEL", "gpt-4.1-nano")
-EMBEDDING_MODEL   = os.environ.get("NGT_EMBEDDING_MODEL", "text-embedding-3-small")
-MEMORY_TOP_K      = int(os.environ.get("NGT_MEMORY_TOP_K", "5"))
-MEMORY_THRESHOLD  = float(os.environ.get("NGT_MEMORY_THRESHOLD", "0.25"))
-USE_GRAPH         = os.environ.get("NGT_USE_GRAPH", "true").lower() == "true"
-SESSION_TTL       = int(os.environ.get("NGT_SESSION_TTL", "3600"))
-MAX_SESSIONS      = int(os.environ.get("NGT_MAX_SESSIONS", "100"))
-
-VERSION = "0.23.0"
 
 # ── Global state ──────────────────────────────────────────────────────────────
 
@@ -70,26 +53,23 @@ store: Optional[SessionStore] = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global store
-    if not OPENAI_API_KEY:
-        raise RuntimeError("OPENAI_API_KEY не установлен. Добавьте в .env файл.")
-
-    logger.info(f"NGT Memory API v{VERSION} запускается...")
-    logger.info(f"  Chat model:      {CHAT_MODEL}")
-    logger.info(f"  Embedding model: {EMBEDDING_MODEL}")
-    logger.info(f"  Memory top_k:    {MEMORY_TOP_K}")
-    logger.info(f"  Use graph:       {USE_GRAPH}")
-    logger.info(f"  Session TTL:     {SESSION_TTL}s")
-    logger.info(f"  Max sessions:    {MAX_SESSIONS}")
+    logger.info(f"NGT Memory API v{settings.version} запускается...")
+    logger.info(f"  Chat model:      {settings.chat_model}")
+    logger.info(f"  Embedding model: {settings.embedding_model}")
+    logger.info(f"  Memory top_k:    {settings.memory_top_k}")
+    logger.info(f"  Use graph:       {settings.use_graph}")
+    logger.info(f"  Session TTL:     {settings.session_ttl}s")
+    logger.info(f"  Max sessions:    {settings.max_sessions}")
 
     store = SessionStore(
-        openai_api_key=OPENAI_API_KEY,
-        model=CHAT_MODEL,
-        embedding_model=EMBEDDING_MODEL,
-        memory_top_k=MEMORY_TOP_K,
-        memory_threshold=MEMORY_THRESHOLD,
-        use_graph=USE_GRAPH,
-        session_ttl_seconds=SESSION_TTL,
-        max_sessions=MAX_SESSIONS,
+        openai_api_key=settings.openai_api_key.get_secret_value(),
+        model=settings.chat_model,
+        embedding_model=settings.embedding_model,
+        memory_top_k=settings.memory_top_k,
+        memory_threshold=settings.memory_threshold,
+        use_graph=settings.use_graph,
+        session_ttl_seconds=settings.session_ttl,
+        max_sessions=settings.max_sessions,
     )
 
     logger.info("SessionStore инициализирован. API готов.")
@@ -106,7 +86,7 @@ app = FastAPI(
         "Persistent memory layer for LLM applications. "
         "Store, retrieve, and chat with context-aware AI powered by NGT Memory."
     ),
-    version=VERSION,
+    version=settings.version,
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
@@ -115,15 +95,16 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestIdMiddleware)
 
 # ── Billing (Stripe) ─────────────────────────────────────────────────────────
 
-if BILLING_ENABLED:
+if settings.billing_enabled:
     _km = KeyManager()
     app.add_middleware(BillingMiddleware, key_manager=_km, enabled=True)
     app.include_router(billing_router)
@@ -135,7 +116,7 @@ else:
 
 def verify_api_key(x_api_key: Optional[str] = Header(default=None)):
     """Проверяет NGT_API_SECRET если он установлен."""
-    if API_SECRET_KEY and x_api_key != API_SECRET_KEY:
+    if settings.api_secret and x_api_key != settings.api_secret:
         raise HTTPException(status_code=401, detail="Invalid API key")
 
 
@@ -161,10 +142,10 @@ async def health():
     """Проверка состояния сервера."""
     return HealthResponse(
         status="ok",
-        version=VERSION,
+        version=settings.version,
         active_sessions=store.active_sessions() if store else 0,
-        model=CHAT_MODEL,
-        embedding_model=EMBEDDING_MODEL,
+        model=settings.chat_model,
+        embedding_model=settings.embedding_model,
     )
 
 
@@ -213,7 +194,7 @@ async def chat(
         tokens_in=result.get("tokens_in", 0),
         tokens_out=result.get("tokens_out", 0),
         latency_ms=round(result.get("latency_ms", 0), 1),
-        memory_entries=len(wrapper.memory._entries),
+        memory_entries=wrapper.memory_entries_count,
     )
 
 
@@ -234,7 +215,7 @@ async def store_memory(
     wrapper = store.get_or_create(request.session_id)
 
     try:
-        emb = await wrapper._aembed(request.text)
+        emb = await wrapper.aembed_text(request.text)
         wrapper.memory.store(
             embedding=emb,
             text=request.text,
@@ -246,7 +227,7 @@ async def store_memory(
         logger.error(f"store error session={request.session_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-    entries = len(wrapper.memory._entries)
+    entries = wrapper.memory_entries_count
     logger.info(f"store session={request.session_id} total_entries={entries}")
 
     return StoreResponse(
@@ -274,7 +255,7 @@ async def retrieve_memory(
     wrapper = store.get_or_create(request.session_id)
 
     try:
-        query_emb = await wrapper._aembed(request.query)
+        query_emb = await wrapper.aembed_text(request.query)
         results = wrapper.memory.retrieve(
             query_embedding=query_emb,
             top_k=request.top_k,
@@ -353,8 +334,16 @@ async def session_stats(
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
-    logger.error(f"Unhandled error: {exc}", exc_info=True)
+    rid = get_request_id()
+    logger.error(
+        f"Unhandled error: {exc}",
+        exc_info=True,
+        extra={"request_id": rid, "method": request.method, "path": str(request.url.path)},
+    )
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal server error", "error": str(exc)},
+        content={
+            "detail": "Internal server error",
+            "request_id": rid,
+        },
     )

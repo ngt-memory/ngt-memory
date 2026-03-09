@@ -69,6 +69,10 @@ cp .env.example .env
 docker-compose up -d
 ```
 
+Current Docker image runs with `--workers 1` by default.
+This is intentional: sessions are stored in-memory, so a single worker keeps `session_id` state consistent.
+If you need multi-worker scaling, use sticky routing or move sessions to a shared backend.
+
 ---
 
 ## API Reference
@@ -226,6 +230,12 @@ session_id="default"   → shared (for single-user setups)
 
 Sessions expire after `NGT_SESSION_TTL` seconds of inactivity (default: 1 hour).
 
+Important deployment note:
+
+- With the current in-memory `SessionStore`, Docker defaults to **1 uvicorn worker**.
+- Multi-worker deployments require **sticky sessions** or a **shared session backend**.
+- Without that, the same `session_id` can be split across processes.
+
 ---
 
 ## Python client example
@@ -270,6 +280,9 @@ print(f"Memories used: {r.json()['memories_count']}")
 | `NGT_USE_GRAPH` | `true` | Enable graph-boosted retrieval |
 | `NGT_SESSION_TTL` | `3600` | Session inactivity timeout (seconds) |
 | `NGT_MAX_SESSIONS` | `100` | Max concurrent sessions |
+| `NGT_CORS_ORIGINS` | `*` | Allowed CORS origins, comma-separated |
+| `NGT_LOG_LEVEL` | `INFO` | Log level |
+| `NGT_LOG_JSON` | `true` | Structured JSON logs |
 
 ---
 
@@ -295,7 +308,8 @@ Response
 
 **NGT overhead: ~2-3ms** (excluding API calls).
 All OpenAI calls are fully async (`AsyncOpenAI`) — multiple requests processed concurrently.
-Default: 4 uvicorn workers for parallel processing.
+Default Docker deployment: **1 uvicorn worker** for consistent in-memory sessions.
+For multi-worker or multi-instance deployments, use sticky routing or a shared session backend.
 
 Supported models: `gpt-4.1-nano` (fastest), `gpt-4.1-mini`, `gpt-5-nano` (reasoning), `o4-mini`.
 
@@ -334,6 +348,16 @@ End-to-end retrieval (Exp 44, via API with OpenAI embeddings):
 | Personal assistant | 1.8 ms | 867 ms |
 | Tech support | 2.3 ms | 357 ms |
 | **Average** | **2.5 ms** | **764 ms** |
+
+Realistic profile A/B test (Exp 48, `gpt-4.1-nano`, local Docker, single worker):
+
+| Metric | With memory | No memory |
+|--------|-------------|-----------|
+| Avg profile-aware score | **0.917** | **0.083** |
+| Scenario wins | **5 / 6** | 0 / 6 |
+| Retrieval success | **6 / 6** | — |
+
+This experiment uses realistic user-profile scenarios (medical, travel, support, billing, fitness) and compares `use_memory=true` vs `use_memory=false` on the same prompts.
 
 ---
 

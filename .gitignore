@@ -53,6 +53,11 @@ cloud/
 
 # Внутренняя документация (не для публикации)
 docs/
+!docs/
+docs/*
+!docs/SITE_TZ.md
+!docs/SITE_UPDATE_TZ_2026-03.md
+!docs/ТЗ_лендинг_NGT_Memory.md
 
 # Тесты (опционально оставить — показывает качество кода)
 # tests/

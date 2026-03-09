@@ -1,8 +1,11 @@
 """
-Менеджер сессий для NGT Memory API.
+Менеджер сессий для NGT Memory API (in-memory реализация).
 
 Каждая сессия = изолированный NGTMemoryLLMWrapper со своей памятью.
 Сессии хранятся в памяти (in-memory). При перезапуске сервера — сброс.
+
+Для production рекомендуется реализовать SessionStoreBase
+с Redis/Postgres backend.
 """
 
 import threading
@@ -10,9 +13,10 @@ import time
 from typing import Dict, Optional
 
 from ngt.core.llm_wrapper import NGTMemoryLLMWrapper
+from api.session_store_base import SessionStoreBase
 
 
-class SessionStore:
+class SessionStore(SessionStoreBase):
     """
     Thread-safe хранилище сессий.
 

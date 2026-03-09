@@ -138,7 +138,26 @@ class NGTMemoryLLMWrapper:
             return {"max_completion_tokens": max(max_tokens, 4096)}
         return {"temperature": 0.3, "max_tokens": max_tokens}
 
-    # ── Embedding ─────────────────────────────────────────────────────
+    # ── Public embedding API ─────────────────────────────────────────────────
+
+    def embed_text(self, text: str) -> torch.Tensor:
+        """Получает embedding текста через OpenAI API (публичный sync API)."""
+        return self._embed(text)
+
+    async def aembed_text(self, text: str) -> torch.Tensor:
+        """Получает embedding текста через OpenAI API (публичный async API)."""
+        return await self._aembed(text)
+
+    @property
+    def memory_entries_count(self) -> int:
+        """Количество записей в памяти (публичный доступ)."""
+        return self.memory.num_entries
+
+    def flush(self) -> int:
+        """Применяет накопленные Hebbian обновления (публичный API)."""
+        return self.memory.flush_hebbian()
+
+    # ── Embedding (internal) ─────────────────────────────────────────────
 
     def _embed(self, text: str) -> torch.Tensor:
         """Получает embedding через OpenAI API."""
@@ -279,7 +298,7 @@ class NGTMemoryLLMWrapper:
 
         asst_emb = self._embed(assistant_response)
         self._store(assistant_response, asst_emb, role="assistant", turn=turn)
-        self.memory._flush_hebbian()
+        self.memory.flush_hebbian()
 
         # 7. Обновляем историю чата (краткосрочная)
         self._chat_history.append({"role": "user",      "content": user_message})
@@ -342,7 +361,7 @@ class NGTMemoryLLMWrapper:
 
         asst_emb = await self._aembed(assistant_response)
         self._store(assistant_response, asst_emb, role="assistant", turn=turn)
-        self.memory._flush_hebbian()
+        self.memory.flush_hebbian()
 
         # 7. Обновляем историю чата
         self._chat_history.append({"role": "user",      "content": user_message})
@@ -432,7 +451,7 @@ class NGTMemoryLLMWrapper:
         print(f"  Latency chat:     {avg(s['latency_chat_ms']):.0f} ms avg")
         print(f"  Graph edges:      {self.memory.associations.num_edges}")
         print(f"  Graph concepts:   {self.memory.associations.num_concepts}")
-        print(f"  Memory entries:   {len(self.memory._entries)}")
+        print(f"  Memory entries:   {self.memory.num_entries}")
         print("──────────────────────────────────────────────")
 
     def get_stats(self) -> Dict:
@@ -450,5 +469,5 @@ class NGTMemoryLLMWrapper:
             "avg_chat_ms":           avg(s["latency_chat_ms"]),
             "graph_edges":           self.memory.associations.num_edges,
             "graph_concepts":        self.memory.associations.num_concepts,
-            "memory_entries":        len(self.memory._entries),
+            "memory_entries":        self.memory.num_entries,
         }

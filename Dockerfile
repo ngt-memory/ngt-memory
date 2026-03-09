@@ -25,4 +25,4 @@ EXPOSE 9190
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "9190", "--workers", "4"]
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "9190", "--workers", "1"]
