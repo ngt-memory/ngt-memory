@@ -23,6 +23,7 @@ NGTMemoryLLMWrapper — обёртка NGT Memory для реального LLM 
 """
 
 import os
+import re
 import time
 from typing import List, Dict, Optional, Tuple
 
@@ -216,6 +217,34 @@ class NGTMemoryLLMWrapper:
         filtered = [r for r in results if r.get("score", 0) >= self.memory_threshold]
         return filtered
 
+    # ── Quality gate ─────────────────────────────────────────────────
+
+    _MIN_ALPHA_CHARS = 6
+    _MIN_WORD_COUNT = 2
+    _NOISE_RE = re.compile(r'^[\d\s\W]+$')  # only digits, spaces, punctuation
+
+    def _is_worth_storing(self, text: str) -> bool:
+        """Return True if text carries enough semantic value to persist.
+
+        Filters out:
+        - Very short messages (< 6 alpha chars)
+        - Single-word messages (unless they look like names/entities)
+        - Pure number / punctuation strings
+        """
+        stripped = text.strip()
+        if not stripped:
+            return False
+        # pure digits / punctuation
+        if self._NOISE_RE.match(stripped):
+            return False
+        alpha_chars = sum(1 for c in stripped if c.isalpha())
+        if alpha_chars < self._MIN_ALPHA_CHARS:
+            return False
+        words = stripped.split()
+        if len(words) < self._MIN_WORD_COUNT:
+            return False
+        return True
+
     # ── Store memories ────────────────────────────────────────────────
 
     def _store(self, text: str, emb: torch.Tensor, role: str, turn: int):
@@ -301,11 +330,14 @@ class NGTMemoryLLMWrapper:
         tokens_in  = completion.usage.prompt_tokens
         tokens_out = completion.usage.completion_tokens
 
-        # 6. Store user + assistant в память
-        self._store(user_message, user_emb, role="user", turn=turn)
-
-        asst_emb = self._embed(assistant_response)
-        self._store(assistant_response, asst_emb, role="assistant", turn=turn)
+        # 6. Store user + assistant в память (skip noise)
+        # If user message is noise, don't store the response either
+        user_worth = self._is_worth_storing(user_message)
+        if user_worth:
+            self._store(user_message, user_emb, role="user", turn=turn)
+            if self._is_worth_storing(assistant_response):
+                asst_emb = self._embed(assistant_response)
+                self._store(assistant_response, asst_emb, role="assistant", turn=turn)
         self.memory.flush_hebbian()
 
         # 7. Обновляем историю чата (краткосрочная)
@@ -364,11 +396,14 @@ class NGTMemoryLLMWrapper:
         tokens_in  = completion.usage.prompt_tokens
         tokens_out = completion.usage.completion_tokens
 
-        # 6. Store user + assistant в память (async embed)
-        self._store(user_message, user_emb, role="user", turn=turn)
-
-        asst_emb = await self._aembed(assistant_response)
-        self._store(assistant_response, asst_emb, role="assistant", turn=turn)
+        # 6. Store user + assistant в память (skip noise)
+        # If user message is noise, don't store the response either
+        user_worth = self._is_worth_storing(user_message)
+        if user_worth:
+            self._store(user_message, user_emb, role="user", turn=turn)
+            if self._is_worth_storing(assistant_response):
+                asst_emb = await self._aembed(assistant_response)
+                self._store(assistant_response, asst_emb, role="assistant", turn=turn)
         self.memory.flush_hebbian()
 
         # 7. Обновляем историю чата
