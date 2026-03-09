@@ -123,6 +123,11 @@ class NGTMemoryLLMWrapper:
         # История текущего разговора (для OpenAI messages format)
         self._chat_history: List[Dict[str, str]] = []
 
+        # Sliding buffer для склейки коротких сообщений
+        self._pending_fragments: List[Tuple[str, float]] = []  # (text, timestamp)
+        self._FRAGMENT_MAX = 5
+        self._FRAGMENT_TTL = 30.0  # seconds
+
         # Статистика
         self._stats = {
             "total_turns":          0,
@@ -245,6 +250,37 @@ class NGTMemoryLLMWrapper:
             return False
         return True
 
+    # ── Sliding buffer for short-message aggregation ───────────────
+
+    def _flush_expired_fragments(self) -> None:
+        """Remove fragments older than TTL."""
+        now = time.time()
+        self._pending_fragments = [
+            (t, ts) for t, ts in self._pending_fragments
+            if now - ts <= self._FRAGMENT_TTL
+        ]
+
+    def _try_merge_fragments(self, new_text: str) -> Optional[str]:
+        """Try to merge pending fragments + new_text into a storable fact.
+
+        Returns merged text if it passes quality gate, else None.
+        The new_text is always appended to the buffer first.
+        """
+        self._flush_expired_fragments()
+        self._pending_fragments.append((new_text.strip(), time.time()))
+
+        # Keep buffer bounded
+        if len(self._pending_fragments) > self._FRAGMENT_MAX:
+            self._pending_fragments = self._pending_fragments[-self._FRAGMENT_MAX:]
+
+        # Try merging all fragments
+        merged = " ".join(t for t, _ in self._pending_fragments)
+        if self._is_worth_storing(merged):
+            self._pending_fragments.clear()
+            return merged
+
+        return None
+
     # ── Store memories ────────────────────────────────────────────────
 
     def _store(self, text: str, emb: torch.Tensor, role: str, turn: int):
@@ -330,14 +366,20 @@ class NGTMemoryLLMWrapper:
         tokens_in  = completion.usage.prompt_tokens
         tokens_out = completion.usage.completion_tokens
 
-        # 6. Store user + assistant в память (skip noise)
-        # If user message is noise, don't store the response either
-        user_worth = self._is_worth_storing(user_message)
-        if user_worth:
+        # 6. Store user + assistant в память (skip noise, merge fragments)
+        if self._is_worth_storing(user_message):
+            # Good message — flush any pending fragments first, then store
+            self._pending_fragments.clear()
             self._store(user_message, user_emb, role="user", turn=turn)
             if self._is_worth_storing(assistant_response):
                 asst_emb = self._embed(assistant_response)
                 self._store(assistant_response, asst_emb, role="assistant", turn=turn)
+        else:
+            # Short/noisy — try merging with previous fragments
+            merged = self._try_merge_fragments(user_message)
+            if merged:
+                merged_emb = self._embed(merged)
+                self._store(merged, merged_emb, role="user", turn=turn)
         self.memory.flush_hebbian()
 
         # 7. Обновляем историю чата (краткосрочная)
@@ -396,14 +438,20 @@ class NGTMemoryLLMWrapper:
         tokens_in  = completion.usage.prompt_tokens
         tokens_out = completion.usage.completion_tokens
 
-        # 6. Store user + assistant в память (skip noise)
-        # If user message is noise, don't store the response either
-        user_worth = self._is_worth_storing(user_message)
-        if user_worth:
+        # 6. Store user + assistant в память (skip noise, merge fragments)
+        if self._is_worth_storing(user_message):
+            # Good message — flush any pending fragments first, then store
+            self._pending_fragments.clear()
             self._store(user_message, user_emb, role="user", turn=turn)
             if self._is_worth_storing(assistant_response):
                 asst_emb = await self._aembed(assistant_response)
                 self._store(assistant_response, asst_emb, role="assistant", turn=turn)
+        else:
+            # Short/noisy — try merging with previous fragments
+            merged = self._try_merge_fragments(user_message)
+            if merged:
+                merged_emb = await self._aembed(merged)
+                self._store(merged, merged_emb, role="user", turn=turn)
         self.memory.flush_hebbian()
 
         # 7. Обновляем историю чата
