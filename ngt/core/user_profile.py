@@ -102,20 +102,23 @@ _EXTRACT_PATTERNS: List[Tuple[re.Pattern, str, Any, float]] = [
     # Age
     (re.compile(r'\b(?:мне|me|i am|i\'m|my age is)\s+(\d{1,3})\s*(?:лет|год|года|years?\s*old|years?)\b', re.I), "age", 1, 0.0),
     (re.compile(r'\b(\d{1,3})\s*(?:лет|год|года|years?\s*old)\b', re.I), "age", 1, -0.1),
+    (re.compile(r'\b(?:i\'m|i am)\s+(\d{1,3})(?:\.|,|\s|$)', re.I), "age", 1, -0.2),
 
     # Name
-    (re.compile(r'\b(?:меня зовут|my name is|i\'m called|зовите меня|я)\s+([A-ZА-ЯЁ][a-zа-яё]+)\b', re.I), "name", 1, 0.0),
+    (re.compile(r'\b(?:меня зовут|my name is|i\'m called|зовите меня)\s+([A-ZА-ЯЁ][a-zа-яё]+)\b', re.I), "name", 1, 0.0),
+    (re.compile(r'\b(?:hi,?\s+)?i\'m\s+([A-Z][a-z]{1,20})(?:\.|,|\s|$)(?!\s*(?:allergic|also|just|really|not|a\s|an\s|the\s|\d))', re.I), "name", 1, -0.1),
 
     # City
-    (re.compile(r'\b(?:живу в|я из|i live in|i\'m from|i am from|based in|located in)\s+([A-ZА-ЯЁ][a-zа-яё]+(?:\s+[A-ZА-ЯЁ][a-zа-яё]+)?)\b', re.I), "city", 1, 0.0),
+    (re.compile(r'\b(?:живу в|я из|i live in|i\'m from|i am from|based in|located in)\s+([A-ZА-ЯЁ][a-zа-яё]+(?:\s+[A-ZА-ЯЁ][a-zа-яё]+)?)(?:\s*[,.]|\s+and\b|\s*$)', re.I), "city", 1, 0.0),
+    (re.compile(r'\b(?:moved to|relocated to|переехал в|перееха(?:ла|л) в)\s+([A-ZА-ЯЁ][a-zа-яё]+(?:\s+[A-ZА-ЯЁ][a-zа-яё]+)?)\b', re.I), "city", 1, 0.0),
 
     # Diet
     (re.compile(r'\b(?:я\s+)?(вегетарианец|вегетарианка|веган|веганка|vegetarian|vegan)\b', re.I), "diet", 1, 0.0),
     (re.compile(r'\b(?:i am|i\'m|я)\s+(vegetarian|vegan|pescatarian|omnivore)\b', re.I), "diet", 1, 0.0),
 
     # Allergies (accumulative)
-    (re.compile(r'\b(?:аллергия на|allergic to|allergy to|i have .* allergy)\s+(.+?)(?:\.|,|$)', re.I), "allergies", 1, 0.0),
-    (re.compile(r'\b(?:не переношу|intolerant to|can\'t eat|cannot eat)\s+(.+?)(?:\.|,|$)', re.I), "allergies", 1, -0.1),
+    (re.compile(r'\b(?:аллергия на|allergic to|allergy to|i have .* allergy)\s+(.+?)(?:\s+(?:too|either|as well))?(?:\.|,|!|$)', re.I), "allergies", 1, 0.0),
+    (re.compile(r'\b(?:не переношу|intolerant to|can\'t eat|cannot eat)\s+(.+?)(?:\s+(?:too|either|as well))?(?:\.|,|!|$)', re.I), "allergies", 1, -0.1),
 
     # Work
     (re.compile(r'\b(?:работаю|я работаю|i work as|i\'m a|my job is|my profession is)\s+(.+?)(?:\.|,|$)', re.I), "work", 1, 0.0),
