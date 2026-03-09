@@ -81,6 +81,8 @@ class ChatResponse(BaseModel):
     tokens_out: int
     latency_ms: float
     memory_entries: int
+    profile: Optional[Dict[str, Any]] = None
+    profile_updates: Optional[List[Dict[str, Any]]] = None
 
 
 class StoreResponse(BaseModel):

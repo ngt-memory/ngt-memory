@@ -195,6 +195,8 @@ async def chat(
         tokens_out=result.get("tokens_out", 0),
         latency_ms=round(result.get("latency_ms", 0), 1),
         memory_entries=wrapper.memory_entries_count,
+        profile=wrapper.profile.as_dict() or None,
+        profile_updates=result.get("profile_updates") or None,
     )
 
 

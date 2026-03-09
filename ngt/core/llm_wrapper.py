@@ -31,6 +31,7 @@ import torch
 from openai import OpenAI, AsyncOpenAI
 
 from ngt.core.llm_memory import NGTMemoryForLLM
+from ngt.core.user_profile import UserProfile
 
 # Модели, требующие max_completion_tokens вместо max_tokens
 _NEW_API_PREFIXES = ("gpt-5", "o1", "o3", "o4")
@@ -127,6 +128,9 @@ class NGTMemoryLLMWrapper:
         self._pending_fragments: List[Tuple[str, float]] = []  # (text, timestamp)
         self._FRAGMENT_MAX = 5
         self._FRAGMENT_TTL = 30.0  # seconds
+
+        # Структурированный профиль пользователя
+        self.profile = UserProfile()
 
         # Статистика
         self._stats = {
@@ -342,9 +346,13 @@ class NGTMemoryLLMWrapper:
             for m in memories:
                 print(f"    [{m.get('score', 0):.2f}] {m.get('text', '')[:80]}")
 
-        # 3. Build system prompt с memory context
+        # 2b. Extract profile facts from user message
+        profile_updates = self.profile.extract_and_update(user_message, confidence=1.0, source="user_explicit")
+
+        # 3. Build system prompt: profile (highest priority) + memory context
+        profile_block = self.profile.as_prompt_block()
         memory_context = self._format_memory_context(memories)
-        system_with_memory = self.system_prompt + memory_context
+        system_with_memory = self.system_prompt + profile_block + memory_context
 
         # 4. Build messages
         messages = [{"role": "system", "content": system_with_memory}]
@@ -378,6 +386,8 @@ class NGTMemoryLLMWrapper:
             # Short/noisy — try merging with previous fragments
             merged = self._try_merge_fragments(user_message)
             if merged:
+                # Also extract profile from merged text (lower confidence)
+                self.profile.extract_and_update(merged, confidence=0.6, source="fragment_merged")
                 merged_emb = self._embed(merged)
                 self._store(merged, merged_emb, role="user", turn=turn)
         self.memory.flush_hebbian()
@@ -398,6 +408,7 @@ class NGTMemoryLLMWrapper:
             "tokens_in":     tokens_in,
             "tokens_out":    tokens_out,
             "latency_ms":    chat_ms,
+            "profile_updates": profile_updates,
         }
 
     async def achat(
@@ -414,9 +425,13 @@ class NGTMemoryLLMWrapper:
         # 2. Retrieve relevant memories (sync — CPU only, ~2ms)
         memories = self._retrieve_memories(user_emb)
 
-        # 3. Build system prompt с memory context
+        # 2b. Extract profile facts from user message
+        profile_updates = self.profile.extract_and_update(user_message, confidence=1.0, source="user_explicit")
+
+        # 3. Build system prompt: profile (highest priority) + memory context
+        profile_block = self.profile.as_prompt_block()
         memory_context = self._format_memory_context(memories)
-        system_with_memory = self.system_prompt + memory_context
+        system_with_memory = self.system_prompt + profile_block + memory_context
 
         # 4. Build messages
         messages = [{"role": "system", "content": system_with_memory}]
@@ -450,6 +465,8 @@ class NGTMemoryLLMWrapper:
             # Short/noisy — try merging with previous fragments
             merged = self._try_merge_fragments(user_message)
             if merged:
+                # Also extract profile from merged text (lower confidence)
+                self.profile.extract_and_update(merged, confidence=0.6, source="fragment_merged")
                 merged_emb = await self._aembed(merged)
                 self._store(merged, merged_emb, role="user", turn=turn)
         self.memory.flush_hebbian()
@@ -470,6 +487,7 @@ class NGTMemoryLLMWrapper:
             "tokens_in":     tokens_in,
             "tokens_out":    tokens_out,
             "latency_ms":    chat_ms,
+            "profile_updates": profile_updates,
         }
 
     async def achat_no_memory(self, user_message: str) -> Dict:
