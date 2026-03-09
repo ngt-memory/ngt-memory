@@ -76,8 +76,45 @@ def health() -> Dict:
         return r.json()
 
 
+# ── Number word → digit mapping for fuzzy matching ──────────────────
+
+_ONES = {
+    "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+    "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15,
+    "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
+}
+_TENS = {
+    "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50,
+    "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
+}
+
+
+def _words_to_number(text: str) -> str:
+    """Replace English number words with digits. E.g. 'thirty-one' → '31'."""
+    import re as _re
+    result = text
+    # Handle compound: "twenty-one", "thirty one", etc.
+    for tens_word, tens_val in _TENS.items():
+        for ones_word, ones_val in _ONES.items():
+            if ones_val == 0 or ones_val > 9:
+                continue
+            for sep in [" ", "-"]:
+                pattern = tens_word + sep + ones_word
+                if pattern in result:
+                    result = result.replace(pattern, str(tens_val + ones_val))
+    # Handle standalone tens
+    for word, val in _TENS.items():
+        result = _re.sub(r'\b' + word + r'\b', str(val), result)
+    # Handle standalone ones
+    for word, val in _ONES.items():
+        result = _re.sub(r'\b' + word + r'\b', str(val), result)
+    return result
+
+
 def normalize(text: str) -> str:
-    return " ".join((text or "").lower().replace("-", " ").split())
+    norm = " ".join((text or "").lower().replace("-", " ").split())
+    return _words_to_number(norm)
 
 
 def contains_any(text: str, terms: List[str]) -> bool:

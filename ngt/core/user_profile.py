@@ -106,11 +106,11 @@ _EXTRACT_PATTERNS: List[Tuple[re.Pattern, str, Any, float]] = [
 
     # Name
     (re.compile(r'\b(?:меня зовут|my name is|i\'m called|зовите меня)\s+([A-ZА-ЯЁ][a-zа-яё]+)\b', re.I), "name", 1, 0.0),
-    (re.compile(r'\b(?:hi,?\s+)?i\'m\s+([A-Z][a-z]{1,20})(?:\.|,|\s|$)(?!\s*(?:allergic|also|just|really|not|a\s|an\s|the\s|\d))', re.I), "name", 1, -0.1),
+    (re.compile(r'\b(?:hi,?\s+)?[Ii]\'m\s+(?!(?:allergic|also|just|really|not|a|an|the|from|here|going|sorry|so|very|quite|too|about|around|ok|okay|fine|sure|happy|glad|afraid|looking|trying|working|living|based|located|called)\b)([A-Z][a-z]{1,20})\b'), "name", 1, -0.1),
 
-    # City
-    (re.compile(r'\b(?:живу в|я из|i live in|i\'m from|i am from|based in|located in)\s+([A-ZА-ЯЁ][a-zа-яё]+(?:\s+[A-ZА-ЯЁ][a-zа-яё]+)?)(?:\s*[,.]|\s+and\b|\s*$)', re.I), "city", 1, 0.0),
-    (re.compile(r'\b(?:moved to|relocated to|переехал в|перееха(?:ла|л) в)\s+([A-ZА-ЯЁ][a-zа-яё]+(?:\s+[A-ZА-ЯЁ][a-zа-яё]+)?)\b', re.I), "city", 1, 0.0),
+    # City — capture only capitalized words, stop before 'and', 'и', punctuation
+    (re.compile(r'\b(?:живу в|я из|i live in|i\'m from|i am from|based in|located in)\s+((?:[A-ZА-ЯЁ][a-zа-яё]+)(?:\s+(?!and\b|и\b|or\b)[A-ZА-ЯЁ][a-zа-яё]+)*)\b', re.I), "city", 1, 0.0),
+    (re.compile(r'\b(?:moved to|relocated to|переехал в|перееха(?:ла|л) в)\s+((?:[A-ZА-ЯЁ][a-zа-яё]+)(?:\s+(?!and\b|и\b|or\b)[A-ZА-ЯЁ][a-zа-яё]+)*)\b', re.I), "city", 1, 0.0),
 
     # Diet
     (re.compile(r'\b(?:я\s+)?(вегетарианец|вегетарианка|веган|веганка|vegetarian|vegan)\b', re.I), "diet", 1, 0.0),
