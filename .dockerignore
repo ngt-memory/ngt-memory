@@ -1,0 +1,42 @@
+# Secrets
+.env
+.env.*
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+
+# Data / large files
+data/
+results/
+experiments/
+*.pt
+*.pth
+*.pkl
+
+# Internal
+docs/
+_archive/
+cloud/
+notebooks/
+
+# Build artifacts
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.venv/
+
+# Tests (not needed in production image)
+tests/
+.pytest_cache/
+
+# OS
+Thumbs.db
+.DS_Store

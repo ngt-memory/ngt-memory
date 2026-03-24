@@ -1,0 +1,23 @@
+services:
+  ngt-memory-api:
+    build: .
+    container_name: ngt-memory-api
+    env_file:
+      - .env
+    environment:
+      - NGT_CHAT_MODEL=${NGT_CHAT_MODEL:-gpt-4.1-nano}
+      - NGT_EMBEDDING_MODEL=${NGT_EMBEDDING_MODEL:-text-embedding-3-small}
+      - NGT_MEMORY_TOP_K=${NGT_MEMORY_TOP_K:-5}
+      - NGT_MEMORY_THRESHOLD=${NGT_MEMORY_THRESHOLD:-0.25}
+      - NGT_USE_GRAPH=${NGT_USE_GRAPH:-true}
+      - NGT_SESSION_TTL=${NGT_SESSION_TTL:-3600}
+      - NGT_MAX_SESSIONS=${NGT_MAX_SESSIONS:-100}
+    ports:
+      - "9190:9190"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9190/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
