@@ -65,6 +65,15 @@ __all__ = [
 ]
 
 
+def _ngt_version() -> str:
+    """Версия пакета (lazy import — избегаем циклического импорта при загрузке модуля)."""
+    try:
+        from ngt import __version__
+        return __version__
+    except Exception:
+        return "unknown"
+
+
 class NGTMemoryForLLM:
     """
     Внешняя нейропластичная память для LLM.
@@ -1003,7 +1012,7 @@ class NGTMemoryForLLM:
         path.parent.mkdir(parents=True, exist_ok=True)
         
         state = {
-            "version": "0.19.0",
+            "version": _ngt_version(),
             "embedding_dim": self.embedding_dim,
             "max_entries": self.max_entries,
             
@@ -1115,6 +1124,7 @@ class NGTMemoryForLLM:
             
             memory.associations._id_to_concept[nid] = concept
             memory.associations._name_to_id[concept.name] = nid
+            memory.associations._ensure_emb_capacity(nid + 1)
             memory.associations._embeddings[nid] = concept.embedding
             memory.associations._active_ids.append(nid)
         memory.associations._next_id = state.get("next_concept_id", 0)
@@ -1142,6 +1152,7 @@ class NGTMemoryForLLM:
             metadata_list = state.get("hierarchy_episodic_metadata", [])
             
             n = min(patterns.shape[0], ep.capacity)
+            ep._ensure_capacity(n)  # ленивые буферы — гарантируем размер перед записью
             ep._patterns[:n] = patterns[:n]
             ep._strengths[:n] = strengths[:n]
             for i in range(min(n, len(metadata_list))):

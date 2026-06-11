@@ -16,6 +16,10 @@ Hierarchical Memory System — Иерархическая система пам�
 - Level-dependent forgetting: нижние уровни забывают быстрее
 - Dream-driven consolidation: episodic → semantic через Dream Phase
 - Hierarchical replay: replay из разных уровней с разной частотой
+
+v0.24.0: EpisodicMemory использует ленивую аллокацию буферов
+(рост с удвоением до capacity) вместо upfront torch.zeros(capacity, dim).
+Это снижает базовый footprint сессии с ~60 МБ до сотен КБ.
 """
 
 import torch
@@ -174,19 +178,50 @@ class EpisodicMemory:
     Основной источник для replay. Domain-tagged.
     
     Биоаналогия: гиппокамп — хранит «что, где, когда».
+
+    v0.24.0: буферы аллоцируются лениво и растут удвоением до capacity.
+    При capacity=10000 и dim=1536 upfront-аллокация стоила ~61 МБ на сессию;
+    теперь пустая память занимает <1 МБ.
     """
-    
+
+    # Начальный размер буфера (растёт удвоением до capacity)
+    _INITIAL_ALLOC = 64
+
     def __init__(self, capacity: int = 500, pattern_dim: int = 64):
         self.capacity = capacity
         self.pattern_dim = pattern_dim
-        
-        # Тензорное хранение для быстрого поиска
-        self._patterns = torch.zeros(capacity, pattern_dim)
-        self._strengths = torch.zeros(capacity)
-        self._access_counts = torch.zeros(capacity, dtype=torch.long)
-        self._metadata: List[Optional[Dict]] = [None] * capacity
+
+        # Ленивое тензорное хранение: аллоцируем маленький буфер,
+        # растим удвоением по мере заполнения (см. _ensure_capacity)
+        self._alloc = min(capacity, self._INITIAL_ALLOC)
+        self._patterns = torch.zeros(self._alloc, pattern_dim)
+        self._strengths = torch.zeros(self._alloc)
+        self._access_counts = torch.zeros(self._alloc, dtype=torch.long)
+        self._metadata: List[Optional[Dict]] = [None] * self._alloc
         self._num_stored = 0
-    
+
+    def _ensure_capacity(self, n: int) -> None:
+        """Гарантирует что буферы вмещают n записей (рост удвоением до capacity)."""
+        if n <= self._alloc:
+            return
+        new_alloc = self._alloc
+        while new_alloc < n:
+            new_alloc *= 2
+        new_alloc = min(new_alloc, self.capacity)
+
+        patterns = torch.zeros(new_alloc, self.pattern_dim)
+        patterns[:self._alloc] = self._patterns
+        strengths = torch.zeros(new_alloc)
+        strengths[:self._alloc] = self._strengths
+        access = torch.zeros(new_alloc, dtype=torch.long)
+        access[:self._alloc] = self._access_counts
+
+        self._patterns = patterns
+        self._strengths = strengths
+        self._access_counts = access
+        self._metadata = self._metadata + [None] * (new_alloc - self._alloc)
+        self._alloc = new_alloc
+
     def store(
         self,
         pattern: torch.Tensor,
@@ -207,6 +242,7 @@ class EpisodicMemory:
         
         if self._num_stored < self.capacity:
             idx = self._num_stored
+            self._ensure_capacity(idx + 1)
             self._num_stored += 1
         else:
             # Заменяем самый слабый

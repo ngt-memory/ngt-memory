@@ -12,8 +12,12 @@ services:
       - NGT_USE_GRAPH=${NGT_USE_GRAPH:-true}
       - NGT_SESSION_TTL=${NGT_SESSION_TTL:-3600}
       - NGT_MAX_SESSIONS=${NGT_MAX_SESSIONS:-100}
+      - NGT_PERSIST_DIR=${NGT_PERSIST_DIR:-/data/sessions}
+      - NGT_PERSIST_INTERVAL=${NGT_PERSIST_INTERVAL:-300}
     ports:
       - "9190:9190"
+    volumes:
+      - ngt-data:/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9190/health')"]
@@ -21,3 +25,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
+
+volumes:
+  ngt-data:

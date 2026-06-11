@@ -16,6 +16,7 @@ Endpoints:
     docker-compose up
 """
 
+import asyncio
 import time
 import logging
 from contextlib import asynccontextmanager
@@ -70,6 +71,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"  Use graph:       {settings.use_graph}")
     logger.info(f"  Session TTL:     {settings.session_ttl}s")
     logger.info(f"  Max sessions:    {settings.max_sessions}")
+    logger.info(f"  Persist dir:     {settings.persist_dir or '(disabled — in-memory only)'}")
 
     store = SessionStore(
         openai_api_key=settings.openai_api_key.get_secret_value(),
@@ -82,10 +84,36 @@ async def lifespan(app: FastAPI):
         use_graph=settings.use_graph,
         session_ttl_seconds=settings.session_ttl,
         max_sessions=settings.max_sessions,
+        persist_dir=settings.persist_dir,
+    )
+
+    # Фоновое периодическое сохранение сессий на диск
+    async def _periodic_persist():
+        while True:
+            await asyncio.sleep(settings.persist_interval)
+            try:
+                n = await asyncio.to_thread(store.save_all)
+                if n:
+                    logger.info(f"persisted {n} sessions to disk")
+            except Exception:
+                logger.exception("periodic session persist failed")
+
+    persist_task = (
+        asyncio.create_task(_periodic_persist()) if settings.persist_dir else None
     )
 
     logger.info("SessionStore инициализирован. API готов.")
     yield
+
+    if persist_task is not None:
+        persist_task.cancel()
+        try:
+            await persist_task
+        except asyncio.CancelledError:
+            pass
+    if settings.persist_dir:
+        n = await asyncio.to_thread(store.save_all)
+        logger.info(f"shutdown: persisted {n} sessions to disk")
 
     logger.info("NGT Memory API остановлен.")
 
@@ -181,17 +209,21 @@ async def chat(
     _: None = Depends(verify_api_key),
 ):
     t_start = time.perf_counter()
-    wrapper = store.get_or_create(request.session_id)
+    # Лок сериализует конкурентные запросы одного session_id:
+    # без него два параллельных /chat чередуются на await и перемешивают
+    # _chat_history / _stats / память.
+    async with store.get_lock(request.session_id):
+        wrapper = store.get_or_create(request.session_id)
 
-    try:
-        if request.use_memory:
-            result = await wrapper.achat(request.message)
-        else:
-            result = await wrapper.achat_no_memory(request.message)
+        try:
+            if request.use_memory:
+                result = await wrapper.achat(request.message)
+            else:
+                result = await wrapper.achat_no_memory(request.message)
 
-    except Exception as e:
-        logger.error(f"chat error session={request.session_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        except Exception as e:
+            logger.error(f"chat error session={request.session_id}: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
     memories = _memory_items(result.get("memories_used", []))
 
@@ -230,20 +262,21 @@ async def store_memory(
     request: StoreRequest,
     _: None = Depends(verify_api_key),
 ):
-    wrapper = store.get_or_create(request.session_id)
+    async with store.get_lock(request.session_id):
+        wrapper = store.get_or_create(request.session_id)
 
-    try:
-        emb = await wrapper.aembed_text(request.text)
-        wrapper.memory.store(
-            embedding=emb,
-            text=request.text,
-            concepts=request.concepts,
-            metadata=request.metadata or {},
-            domain=request.domain or "general",
-        )
-    except Exception as e:
-        logger.error(f"store error session={request.session_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        try:
+            emb = await wrapper.aembed_text(request.text)
+            wrapper.memory.store(
+                embedding=emb,
+                text=request.text,
+                concepts=request.concepts,
+                metadata=request.metadata or {},
+                domain=request.domain or "general",
+            )
+        except Exception as e:
+            logger.error(f"store error session={request.session_id}: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
     entries = wrapper.memory_entries_count
     logger.info(f"store session={request.session_id} total_entries={entries}")
@@ -306,7 +339,8 @@ async def reset_session(
     request: NewSessionRequest,
     _: None = Depends(verify_api_key),
 ):
-    deleted = store.reset(request.session_id)
+    async with store.get_lock(request.session_id):
+        deleted = store.reset(request.session_id)
     logger.info(f"reset session={request.session_id} existed={deleted}")
 
     return ResetResponse(

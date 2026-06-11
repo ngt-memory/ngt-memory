@@ -59,6 +59,17 @@ class Settings(BaseSettings):
     session_ttl: int = Field(default=3600, ge=60, description="TTL сессии в секундах")
     max_sessions: int = Field(default=100, ge=1, description="Максимум активных сессий")
 
+    # ── Persistence ──────────────────────────────────────────────────────
+    persist_dir: str = Field(
+        default="",
+        description="Каталог сохранения сессий на диск. Пусто = персистентность выключена.",
+    )
+    persist_interval: int = Field(
+        default=300,
+        ge=10,
+        description="Период фонового сохранения всех сессий, сек.",
+    )
+
     # ── Server ──────────────────────────────────────────────────────────
     root_path: str = Field(default="", description="Root path prefix (e.g. /api for reverse proxy)")
 

@@ -301,6 +301,8 @@ print(f"Memories used: {r.json()['memories_count']}")
 | `NGT_USE_GRAPH` | `true` | Enable graph-boosted retrieval |
 | `NGT_SESSION_TTL` | `3600` | Session inactivity timeout (seconds) |
 | `NGT_MAX_SESSIONS` | `100` | Max concurrent sessions |
+| `NGT_PERSIST_DIR` | *(empty)* | Directory for session persistence (disabled if empty) |
+| `NGT_PERSIST_INTERVAL` | `300` | Background save interval (seconds) |
 | `NGT_CORS_ORIGINS` | `*` | Allowed CORS origins, comma-separated |
 | `NGT_LOG_LEVEL` | `INFO` | Log level |
 | `NGT_LOG_JSON` | `true` | Structured JSON logs |

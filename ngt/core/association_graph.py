@@ -3,6 +3,10 @@ AssociationGraph и ConceptNode — граф ассоциаций между к�
 
 Лёгкая реализация без nn.Module overhead.
 Связи формируются через Hebbian co-occurrence (dict-based граф).
+
+v0.24.0: матрица embedding-ов аллоцируется лениво и растёт удвоением
+до max_concepts (вместо upfront torch.zeros(max_concepts, dim) —
+при max_concepts=3000 и dim=1536 это экономит ~18 МБ на пустую сессию).
 """
 
 import math
@@ -69,6 +73,9 @@ class AssociationGraph:
     - Decay неиспользуемых связей
     """
 
+    # Начальный размер embedding-матрицы (растёт удвоением до max_concepts)
+    _INITIAL_EMB_ALLOC = 256
+
     def __init__(
         self,
         max_concepts: int = 10000,
@@ -96,11 +103,28 @@ class AssociationGraph:
         # Adjacency list для быстрого walk: node_id → {neighbor_id: weight}
         self._adj: Dict[int, Dict[int, float]] = {}
 
-        # Embedding matrix для быстрого cosine search
-        self._embeddings = torch.zeros(max_concepts, embedding_dim)
+        # Embedding matrix для быстрого cosine search.
+        # Ленивая аллокация: начинаем с маленького буфера, растим удвоением
+        # (см. _ensure_emb_capacity). Индексация по node_id сохраняется.
+        self._emb_alloc = min(max_concepts, self._INITIAL_EMB_ALLOC)
+        self._embeddings = torch.zeros(self._emb_alloc, embedding_dim)
         self._active_ids: List[int] = []  # список активных node_id
         self._emb_dirty = True
         self._emb_matrix: Optional[torch.Tensor] = None  # [M, D] нормализованных
+
+    def _ensure_emb_capacity(self, n: int) -> None:
+        """Гарантирует что embedding-буфер вмещает индексы < n (рост удвоением)."""
+        if n <= self._emb_alloc:
+            return
+        new_alloc = self._emb_alloc
+        while new_alloc < n:
+            new_alloc *= 2
+        new_alloc = min(new_alloc, self.max_concepts)
+
+        buf = torch.zeros(new_alloc, self.embedding_dim)
+        buf[:self._emb_alloc] = self._embeddings
+        self._embeddings = buf
+        self._emb_alloc = new_alloc
 
     def _rebuild_emb_matrix(self) -> None:
         if not self._active_ids:
@@ -140,6 +164,7 @@ class AssociationGraph:
         concept = ConceptNode(node_id, name, embedding, metadata)
         self._name_to_id[name] = node_id
         self._id_to_concept[node_id] = concept
+        self._ensure_emb_capacity(node_id + 1)
         self._embeddings[node_id] = concept.embedding
         self._active_ids.append(node_id)
         self._emb_dirty = True
@@ -173,7 +198,7 @@ class AssociationGraph:
                     self._adj[a] = {}
                 if b not in self._adj:
                     self._adj[b] = {}
-                if key not in self._edges or old == 0.0:
+                if old == 0.0:
                     created += 1
                 self._adj[a][b] = new_w
                 self._adj[b][a] = new_w
