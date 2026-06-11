@@ -62,8 +62,10 @@ store: Optional[SessionStore] = None
 async def lifespan(app: FastAPI):
     global store
     logger.info(f"NGT Memory API v{settings.version} запускается...")
+    logger.info(f"  Base URL:        {settings.openai_base_url or 'OpenAI (default)'}")
     logger.info(f"  Chat model:      {settings.chat_model}")
     logger.info(f"  Embedding model: {settings.embedding_model}")
+    logger.info(f"  Embedding dim:   {settings.embedding_dim}")
     logger.info(f"  Memory top_k:    {settings.memory_top_k}")
     logger.info(f"  Use graph:       {settings.use_graph}")
     logger.info(f"  Session TTL:     {settings.session_ttl}s")
@@ -71,8 +73,10 @@ async def lifespan(app: FastAPI):
 
     store = SessionStore(
         openai_api_key=settings.openai_api_key.get_secret_value(),
+        base_url=settings.openai_base_url or None,
         model=settings.chat_model,
         embedding_model=settings.embedding_model,
+        embedding_dim=settings.embedding_dim,
         memory_top_k=settings.memory_top_k,
         memory_threshold=settings.memory_threshold,
         use_graph=settings.use_graph,

@@ -49,7 +49,9 @@ class NGTMemoryLLMWrapper:
         5. Store user message + assistant response в NGT Memory
 
     Параметры:
-        openai_api_key:   OpenAI API ключ (или из env OPENAI_API_KEY)
+        openai_api_key:   API ключ провайдера (или из env OPENAI_API_KEY)
+        base_url:         Base URL OpenAI-совместимого endpoint (None = официальный OpenAI;
+                          для YandexGPT: https://llm.api.cloud.yandex.net/v1)
         model:            Chat модель (default: gpt-4o-mini)
         embedding_model:  Embedding модель (default: text-embedding-3-small)
         memory_top_k:     Сколько воспоминаний инжектить в контекст
@@ -85,6 +87,7 @@ class NGTMemoryLLMWrapper:
     def __init__(
         self,
         openai_api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
         model: str = "gpt-4o-mini",
         embedding_model: str = "text-embedding-3-small",
         memory_top_k: int = 5,
@@ -98,8 +101,19 @@ class NGTMemoryLLMWrapper:
         if not api_key:
             raise ValueError("OPENAI_API_KEY не установлен")
 
-        self.client = OpenAI(api_key=api_key)
-        self.aclient = AsyncOpenAI(api_key=api_key)
+        base_url = base_url or os.environ.get("OPENAI_BASE_URL") or None
+        client_kwargs = {"api_key": api_key}
+        if base_url:
+            client_kwargs["base_url"] = base_url
+            # YandexGPT ожидает схему `Authorization: Api-Key <key>`,
+            # а OpenAI SDK по умолчанию шлёт `Bearer`. Переопределяем заголовок.
+            if "yandex" in base_url.lower():
+                client_kwargs["api_key"] = "unused"
+                client_kwargs["default_headers"] = {"Authorization": f"Api-Key {api_key}"}
+
+        self.base_url = base_url
+        self.client = OpenAI(**client_kwargs)
+        self.aclient = AsyncOpenAI(**client_kwargs)
         self.model           = model
         self.embedding_model = embedding_model
         self.memory_top_k    = memory_top_k
@@ -183,6 +197,7 @@ class NGTMemoryLLMWrapper:
         response = self.client.embeddings.create(
             model=self.embedding_model,
             input=text[:8000],  # лимит токенов
+            encoding_format="float",  # base64 не поддерживается YandexGPT
         )
         emb_list = response.data[0].embedding
         emb = torch.tensor(emb_list, dtype=torch.float32)
@@ -199,6 +214,7 @@ class NGTMemoryLLMWrapper:
         response = await self.aclient.embeddings.create(
             model=self.embedding_model,
             input=text[:8000],
+            encoding_format="float",  # base64 не поддерживается YandexGPT
         )
         emb_list = response.data[0].embedding
         emb = torch.tensor(emb_list, dtype=torch.float32)

@@ -20,21 +20,34 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Конфигурация NGT Memory API из переменных окружения."""
 
-    # ── OpenAI ───────────────────────────────────────────────────────────
+    # ── OpenAI / OpenAI-совместимый провайдер ────────────────────────────
     openai_api_key: SecretStr = Field(
         ...,
-        description="OpenAI API key (обязательно)",
+        description="API key провайдера (обязательно). Для YandexGPT — Api-Key из Yandex Cloud",
         alias="OPENAI_API_KEY",
+    )
+    openai_base_url: str = Field(
+        default="",
+        description=(
+            "Base URL OpenAI-совместимого endpoint. Пусто = официальный OpenAI. "
+            "Для YandexGPT: https://llm.api.cloud.yandex.net/v1"
+        ),
+        alias="OPENAI_BASE_URL",
     )
 
     # ── Models ───────────────────────────────────────────────────────────
     chat_model: str = Field(
         default="gpt-4.1-nano",
-        description="Chat модель OpenAI",
+        description="Chat модель. Для YandexGPT: gpt://<folder_id>/yandexgpt/latest",
     )
     embedding_model: str = Field(
         default="text-embedding-3-small",
-        description="Embedding модель OpenAI",
+        description="Embedding модель. Для YandexGPT: emb://<folder_id>/text-search-doc/latest",
+    )
+    embedding_dim: int = Field(
+        default=1536,
+        ge=1,
+        description="Размерность embedding-вектора. 1536 для text-embedding-3-small, 256 для YandexGPT",
     )
 
     # ── Memory ───────────────────────────────────────────────────────────

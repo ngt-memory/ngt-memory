@@ -34,10 +34,14 @@ class SessionStore(SessionStoreBase):
         use_graph: bool = True,
         session_ttl_seconds: int = 3600,
         max_sessions: int = 100,
+        base_url: Optional[str] = None,
+        embedding_dim: int = 1536,
     ):
         self._api_key = openai_api_key
+        self._base_url = base_url
         self._model = model
         self._embedding_model = embedding_model
+        self._embedding_dim = embedding_dim
         self._memory_top_k = memory_top_k
         self._memory_threshold = memory_threshold
         self._use_graph = use_graph
@@ -59,8 +63,10 @@ class SessionStore(SessionStoreBase):
 
                 self._sessions[session_id] = NGTMemoryLLMWrapper(
                     openai_api_key=self._api_key,
+                    base_url=self._base_url,
                     model=self._model,
                     embedding_model=self._embedding_model,
+                    embedding_dim=self._embedding_dim,
                     memory_top_k=self._memory_top_k,
                     memory_threshold=self._memory_threshold,
                     use_graph=self._use_graph,
