@@ -17,6 +17,7 @@ Endpoints:
 """
 
 import asyncio
+import secrets
 import time
 import logging
 from contextlib import asynccontextmanager
@@ -133,10 +134,23 @@ app = FastAPI(
     root_path=settings.root_path,
 )
 
+# CORS: спека запрещает wildcard origin вместе с credentials. Starlette в этом
+# режиме эхо-отражает любой Origin с Allow-Credentials: true → credentialed-запросы
+# (cookies, auth headers) были бы разрешены с любого сайта. При "*" в origins
+# отключаем credentials и предупреждаем в логе.
+_cors_origins = settings.cors_origins_list
+_cors_allow_credentials = "*" not in _cors_origins
+if not _cors_allow_credentials:
+    logger.warning(
+        "NGT_CORS_ORIGINS contains wildcard '*' — allow_credentials disabled. "
+        "Set explicit origins (e.g. NGT_CORS_ORIGINS=https://ngt-memory.ru) "
+        "to enable credentialed cross-origin requests."
+    )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=_cors_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -159,8 +173,17 @@ else:
 # ── Auth (опциональная) ───────────────────────────────────────────────────────
 
 def verify_api_key(x_api_key: Optional[str] = Header(default=None)):
-    """Проверяет NGT_API_SECRET если он установлен."""
-    if settings.api_secret and x_api_key != settings.api_secret:
+    """Проверяет NGT_API_SECRET если он установлен (timing-safe).
+
+    secrets.compare_digest сравнивает за константное время — обычный `!=`
+    прерывается на первом несовпавшем байте и допускает timing-атаку
+    (посимвольный подбор ключа по микрозадержкам).
+    """
+    if not settings.api_secret:
+        return
+    provided = (x_api_key or "").encode("utf-8")
+    expected = settings.api_secret.encode("utf-8")
+    if not secrets.compare_digest(provided, expected):
         raise HTTPException(status_code=401, detail="Invalid API key")
 
 
@@ -318,7 +341,9 @@ async def retrieve_memory(
         raise HTTPException(status_code=500, detail=str(e))
 
     items = _memory_items(filtered)
-    logger.info(f"retrieve session={request.session_id} query='{request.query[:40]}' found={len(items)}")
+    # PRIVACY: текст запроса — пользовательские данные (медицина, финансы),
+    # в логи не пишем; только длина и метаданные.
+    logger.info(f"retrieve session={request.session_id} query_len={len(request.query)} found={len(items)}")
 
     return RetrieveResponse(
         results=items,
@@ -399,3 +424,21 @@ async def global_exception_handler(request, exc):
             "request_id": rid,
         },
     )
+
+
+# ── Console entrypoint ────────────────────────────────────────────────────────
+
+def run() -> None:
+    """Запускает API через uvicorn: команда `ngt-api` после pip install."""
+    import os
+    import uvicorn
+    uvicorn.run(
+        "api.main:app",
+        host=os.environ.get("NGT_HOST", "0.0.0.0"),
+        port=int(os.environ.get("NGT_PORT", "9190")),
+        workers=1,  # in-memory сессии — см. README
+    )
+
+
+if __name__ == "__main__":
+    run()

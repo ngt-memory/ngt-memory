@@ -70,7 +70,7 @@ Documentation = "https://github.com/ngt-memory/ngt-memory#readme"
 "Bug Tracker" = "https://github.com/ngt-memory/ngt-memory/issues"
 
 [project.scripts]
-ngt-api = "api.main:app"
+ngt-api = "api.main:run"
 
 [tool.setuptools.packages.find]
 include = ["ngt*", "api*"]

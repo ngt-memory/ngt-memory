@@ -303,7 +303,7 @@ print(f"Memories used: {r.json()['memories_count']}")
 | `NGT_MAX_SESSIONS` | `100` | Max concurrent sessions |
 | `NGT_PERSIST_DIR` | *(empty)* | Directory for session persistence (disabled if empty) |
 | `NGT_PERSIST_INTERVAL` | `300` | Background save interval (seconds) |
-| `NGT_CORS_ORIGINS` | `*` | Allowed CORS origins, comma-separated |
+| `NGT_CORS_ORIGINS` | `*` | Allowed CORS origins, comma-separated. With the wildcard `*`, credentialed cross-origin requests (cookies, auth headers) are disabled per the CORS spec — set explicit origins to enable them. |
 | `NGT_LOG_LEVEL` | `INFO` | Log level |
 | `NGT_LOG_JSON` | `true` | Structured JSON logs |
 

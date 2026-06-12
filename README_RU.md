@@ -305,7 +305,7 @@ print(f"Использовано воспоминаний: {r.json()['memories_c
 | `NGT_MAX_SESSIONS` | `100` | Максимум одновременных сессий |
 | `NGT_PERSIST_DIR` | *(пусто)* | Каталог сохранения сессий на диск; пусто = выключено. В Docker: `/data/sessions` |
 | `NGT_PERSIST_INTERVAL` | `300` | Период фонового сохранения сессий, сек |
-| `NGT_CORS_ORIGINS` | `*` | Допустимые CORS-источники через запятую |
+| `NGT_CORS_ORIGINS` | `*` | Допустимые CORS-источники через запятую. При wildcard `*` credentialed-запросы (cookies, auth headers) с других origin отключены по спецификации CORS — укажите явные origins, чтобы включить их. |
 | `NGT_LOG_LEVEL` | `INFO` | Уровень логирования |
 | `NGT_LOG_JSON` | `true` | Структурированные JSON-логи |
 

@@ -108,9 +108,14 @@ _EXTRACT_PATTERNS: List[Tuple[re.Pattern, str, Any, float]] = [
     (re.compile(r'\b(?:меня зовут|my name is|i\'m called|зовите меня)\s+([A-ZА-ЯЁ][a-zа-яё]+)\b', re.I), "name", 1, 0.0),
     (re.compile(r'\b(?:hi,?\s+)?[Ii]\'m\s+(?!(?:allergic|also|just|really|not|a|an|the|from|here|going|sorry|so|very|quite|too|about|around|ok|okay|fine|sure|happy|glad|afraid|looking|trying|working|living|based|located|called)\b)([A-Z][a-z]{1,20})\b'), "name", 1, -0.1),
 
-    # City — capture only capitalized words, stop before 'and', 'и', punctuation
-    (re.compile(r'\b(?:живу в|я из|i live in|i\'m from|i am from|based in|located in)\s+((?:[A-ZА-ЯЁ][a-zа-яё]+)(?:\s+(?!and\b|и\b|or\b)[A-ZА-ЯЁ][a-zа-яё]+)*)\b', re.I), "city", 1, 0.0),
-    (re.compile(r'\b(?:moved to|relocated to|переехал в|перееха(?:ла|л) в)\s+((?:[A-ZА-ЯЁ][a-zа-яё]+)(?:\s+(?!and\b|и\b|or\b)[A-ZА-ЯЁ][a-zа-яё]+)*)\b', re.I), "city", 1, 0.0),
+    # City — capture only capitalized words with optional hyphenated segments
+    # («Санкт-Петербурге», «Ростов-на-Дону», «Rio-de-Janeiro»), stop before
+    # 'and', 'и', punctuation.
+    # Известное ограничение: захватывается словоформа из текста («Петербурге»,
+    # не «Петербург») — нормализация падежей вне скоупа regex-извлечения,
+    # это задача для NER/лемматизации.
+    (re.compile(r"\b(?:живу в|я из|i live in|i'm from|i am from|based in|located in)\s+((?:[A-ZА-ЯЁ][a-zа-яё]+(?:-[A-Za-zА-Яа-яЁё]+)*)(?:\s+(?!and\b|и\b|or\b)[A-ZА-ЯЁ][a-zа-яё]+(?:-[A-Za-zА-Яа-яЁё]+)*)*)\b", re.I), "city", 1, 0.0),
+    (re.compile(r"\b(?:moved to|relocated to|переехал в|перееха(?:ла|л) в)\s+((?:[A-ZА-ЯЁ][a-zа-яё]+(?:-[A-Za-zА-Яа-яЁё]+)*)(?:\s+(?!and\b|и\b|or\b)[A-ZА-ЯЁ][a-zа-яё]+(?:-[A-Za-zА-Яа-яЁё]+)*)*)\b", re.I), "city", 1, 0.0),
 
     # Diet
     (re.compile(r'\b(?:я\s+)?(вегетарианец|вегетарианка|веган|веганка|vegetarian|vegan)\b', re.I), "diet", 1, 0.0),
