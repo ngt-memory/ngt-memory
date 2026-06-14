@@ -8,12 +8,17 @@ Endpoints:
     POST /session/reset — сбросить память сессии
     GET  /session/{id}/stats — статистика сессии
     GET  /health        — статус сервера
+    GET  /metrics       — Prometheus-метрики (если включены)
 
 Запуск:
     uvicorn api.main:app --host 0.0.0.0 --port 9190 --reload
 
 Или через Docker:
     docker-compose up
+
+Backend сессий выбирается через NGT_SESSION_BACKEND:
+    memory — in-process (1 worker, см. README)
+    redis  — multi-worker / multi-instance (требует redis + safetensors)
 """
 
 import asyncio
@@ -23,10 +28,9 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Optional
 
-import torch
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from api.config import settings
 from api.models import (
@@ -36,8 +40,11 @@ from api.models import (
     NewSessionRequest, ResetResponse,
     SessionStatsResponse, HealthResponse,
 )
-from api.session_store import SessionStore
+from api.session_store_base import SessionStoreBase
 from api.logging_config import setup_logging, RequestIdMiddleware, get_request_id
+from api.rate_limit import RateLimiter, RateLimitMiddleware
+from api.ownership import SessionOwnership, OwnershipError, derive_owner_id
+from api import metrics
 
 # ── Billing (опциональный модуль — не нужен для self-hosted) ──────────────────
 try:
@@ -57,24 +64,32 @@ logger = logging.getLogger("ngt_api")
 
 # ── Global state ──────────────────────────────────────────────────────────────
 
-store: Optional[SessionStore] = None
+store: Optional[SessionStoreBase] = None
+_rate_limiter: Optional[RateLimiter] = None
+_ownership: Optional[SessionOwnership] = None
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    global store
-    logger.info(f"NGT Memory API v{settings.version} запускается...")
-    logger.info(f"  Base URL:        {settings.openai_base_url or 'OpenAI (default)'}")
-    logger.info(f"  Chat model:      {settings.chat_model}")
-    logger.info(f"  Embedding model: {settings.embedding_model}")
-    logger.info(f"  Embedding dim:   {settings.embedding_dim}")
-    logger.info(f"  Memory top_k:    {settings.memory_top_k}")
-    logger.info(f"  Use graph:       {settings.use_graph}")
-    logger.info(f"  Session TTL:     {settings.session_ttl}s")
-    logger.info(f"  Max sessions:    {settings.max_sessions}")
-    logger.info(f"  Persist dir:     {settings.persist_dir or '(disabled — in-memory only)'}")
+def _build_store() -> SessionStoreBase:
+    """Создаёт session store согласно settings.session_backend."""
+    if settings.session_backend == "redis":
+        from api.session_store_redis import RedisSessionStore
+        logger.info("Session backend: REDIS (%s) — multi-worker ready", settings.redis_url)
+        return RedisSessionStore(
+            openai_api_key=settings.openai_api_key.get_secret_value(),
+            redis_url=settings.redis_url,
+            base_url=settings.openai_base_url or None,
+            model=settings.chat_model,
+            embedding_model=settings.embedding_model,
+            embedding_dim=settings.embedding_dim,
+            memory_top_k=settings.memory_top_k,
+            memory_threshold=settings.memory_threshold,
+            use_graph=settings.use_graph,
+            session_ttl_seconds=settings.session_ttl,
+        )
 
-    store = SessionStore(
+    from api.session_store import SessionStore
+    logger.info("Session backend: MEMORY (in-process, single worker)")
+    return SessionStore(
         openai_api_key=settings.openai_api_key.get_secret_value(),
         base_url=settings.openai_base_url or None,
         model=settings.chat_model,
@@ -86,9 +101,50 @@ async def lifespan(app: FastAPI):
         session_ttl_seconds=settings.session_ttl,
         max_sessions=settings.max_sessions,
         persist_dir=settings.persist_dir,
+        max_total_entries=settings.max_total_entries,
+        max_total_bytes=settings.max_total_bytes,
     )
 
-    # Фоновое периодическое сохранение сессий на диск
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global store, _rate_limiter
+    logger.info(f"NGT Memory API v{settings.version} запускается...")
+    logger.info(f"  Base URL:        {settings.openai_base_url or 'OpenAI (default)'}")
+    logger.info(f"  Chat model:      {settings.chat_model}")
+    logger.info(f"  Embedding model: {settings.embedding_model}")
+    logger.info(f"  Embedding dim:   {settings.embedding_dim}")
+    logger.info(f"  Memory top_k:    {settings.memory_top_k}")
+    logger.info(f"  Use graph:       {settings.use_graph}")
+    logger.info(f"  Session TTL:     {settings.session_ttl}s")
+    logger.info(f"  Max sessions:    {settings.max_sessions}")
+    logger.info(f"  Memory budget:   {settings.max_total_entries} entries / {settings.max_total_mb} MB")
+    logger.info(f"  Persist dir:     {settings.persist_dir or '(disabled — in-memory only)'}")
+    logger.info(f"  Rate limit:      {settings.rate_limit_rps or 'off'} rps / burst {settings.rate_limit_burst}")
+    logger.info(f"  Metrics:         {'on' if (settings.metrics_enabled and metrics.PROMETHEUS_AVAILABLE) else 'off'}")
+    logger.info(f"  Ownership:       {settings.session_ownership}")
+
+    store = _build_store()
+
+    # Реестр владения сессиями. Активен по политике session_ownership.
+    global _ownership
+    ownership_active = settings.session_ownership == "strict" or (
+        settings.session_ownership == "auto" and settings.billing_enabled
+    )
+    if ownership_active:
+        # При redis-backend переиспользуем тот же клиент, что и у store —
+        # владение тогда корректно шарится между воркерами.
+        redis_client = getattr(store, "_redis", None) if settings.session_backend == "redis" else None
+        _ownership = SessionOwnership(redis=redis_client, persist_dir=settings.persist_dir)
+        logger.info(
+            "Session ownership: %s (storage=%s)",
+            settings.session_ownership,
+            "redis" if redis_client is not None else "memory+disk",
+        )
+    else:
+        logger.info("Session ownership: off (single-tenant / no per-user keys)")
+
+    # Фоновое периодическое сохранение сессий на диск (только in-memory backend)
     async def _periodic_persist():
         while True:
             await asyncio.sleep(settings.persist_interval)
@@ -99,23 +155,42 @@ async def lifespan(app: FastAPI):
             except Exception:
                 logger.exception("periodic session persist failed")
 
+    # Периодическая очистка rate-limiter ведёр
+    async def _periodic_rl_cleanup():
+        while True:
+            await asyncio.sleep(300)
+            if _rate_limiter is not None:
+                try:
+                    _rate_limiter.cleanup()
+                except Exception:
+                    logger.exception("rate limiter cleanup failed")
+
     persist_task = (
-        asyncio.create_task(_periodic_persist()) if settings.persist_dir else None
+        asyncio.create_task(_periodic_persist())
+        if (settings.persist_dir and settings.session_backend == "memory")
+        else None
+    )
+    rl_task = (
+        asyncio.create_task(_periodic_rl_cleanup())
+        if settings.rate_limit_rps > 0 else None
     )
 
     logger.info("SessionStore инициализирован. API готов.")
     yield
 
-    if persist_task is not None:
-        persist_task.cancel()
-        try:
-            await persist_task
-        except asyncio.CancelledError:
-            pass
-    if settings.persist_dir:
+    for task in (persist_task, rl_task):
+        if task is not None:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+    if settings.persist_dir and settings.session_backend == "memory":
         n = await asyncio.to_thread(store.save_all)
         logger.info(f"shutdown: persisted {n} sessions to disk")
 
+    await store.aclose()
     logger.info("NGT Memory API остановлен.")
 
 
@@ -154,6 +229,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Rate limiting (если включён) — до RequestId, чтобы 429 тоже получал request_id
+if settings.rate_limit_rps > 0:
+    _rate_limiter = RateLimiter(rps=settings.rate_limit_rps, burst=settings.rate_limit_burst)
+    app.add_middleware(RateLimitMiddleware, limiter=_rate_limiter)
+
 app.add_middleware(RequestIdMiddleware)
 
 # ── Billing (опциональный — подключается автоматически если api/billing/ есть)
@@ -187,6 +268,50 @@ def verify_api_key(x_api_key: Optional[str] = Header(default=None)):
         raise HTTPException(status_code=401, detail="Invalid API key")
 
 
+# ── Session ownership (правка 6) ──────────────────────────────────────────────
+
+def _caller_owner_id(x_api_key: Optional[str]) -> Optional[str]:
+    """Идентичность вызывающего для проверки владения сессией.
+
+    Возвращает owner_id (хэш ключа), либо None если владение выключено.
+    В режиме strict требует наличие X-API-Key (иначе сессии неотличимы
+    по владельцу — это ошибка конфигурации/клиента, отвечаем 401).
+    """
+    if _ownership is None:
+        return None  # владение выключено — единое пространство
+    if not x_api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="X-API-Key required for session access (ownership enforced)",
+        )
+    return derive_owner_id(x_api_key)
+
+
+async def _check_session_owner(session_id: str, owner_id: Optional[str], *, claim: bool = True) -> None:
+    """Закрепляет/сверяет владение. 403 при доступе к чужой сессии.
+
+    claim=True  — claim-on-first-use: бесхозную сессию закрепляет за
+                  вызывающим (для эндпоинтов, создающих/мутирующих сессию).
+    claim=False — только сверка: бесхозную сессию НЕ закрепляет (для
+                  read-only /stats и precheck в /reset — чтобы простой
+                  опрос несуществующего id не плодил «пустых» владельцев).
+    """
+    if _ownership is None or owner_id is None:
+        return
+    if claim:
+        try:
+            await _ownership.ensure(session_id, owner_id)
+        except OwnershipError:
+            logger.warning("ownership denied: session=%s caller=%s…", session_id, (owner_id or "")[:8])
+            raise HTTPException(status_code=403, detail="Access to this session is forbidden")
+        return
+    # verify-only
+    current = await _ownership.owner_of(session_id)
+    if current is not None and current != owner_id:
+        logger.warning("ownership denied: session=%s caller=%s…", session_id, (owner_id or "")[:8])
+        raise HTTPException(status_code=403, detail="Access to this session is forbidden")
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _memory_items(memories: list) -> list[MemoryItem]:
@@ -216,6 +341,19 @@ async def health():
     )
 
 
+@app.get("/metrics", tags=["System"], include_in_schema=False)
+async def prometheus_metrics():
+    """Prometheus-метрики. 501 если prometheus_client не установлен или выключено."""
+    if not (settings.metrics_enabled and metrics.PROMETHEUS_AVAILABLE):
+        raise HTTPException(status_code=501, detail="Metrics disabled or prometheus_client not installed")
+    # Обновляем gauges перед отдачей
+    try:
+        metrics.update_session_gauges(store.active_sessions(), store.total_entries())
+    except Exception:
+        logger.debug("failed to update session gauges", exc_info=True)
+    return Response(content=metrics.render(), media_type=metrics.CONTENT_TYPE_LATEST)
+
+
 @app.post(
     "/chat",
     response_model=ChatResponse,
@@ -230,31 +368,41 @@ async def health():
 async def chat(
     request: ChatRequest,
     _: None = Depends(verify_api_key),
+    x_api_key: Optional[str] = Header(default=None),
 ):
-    t_start = time.perf_counter()
-    # Лок сериализует конкурентные запросы одного session_id:
-    # без него два параллельных /chat чередуются на await и перемешивают
-    # _chat_history / _stats / память.
-    async with store.get_lock(request.session_id):
-        wrapper = store.get_or_create(request.session_id)
+    owner_id = _caller_owner_id(x_api_key)
+    with metrics.track_request("/chat") as mark:
+        # Лок сериализует конкурентные запросы одного session_id:
+        # без него два параллельных /chat чередуются на await и перемешивают
+        # _chat_history / _stats / память.
+        async with store.get_lock(request.session_id):
+            await _check_session_owner(request.session_id, owner_id)
+            wrapper = await store.get_or_create_async(request.session_id)
 
-        try:
-            if request.use_memory:
-                result = await wrapper.achat(request.message)
-            else:
-                result = await wrapper.achat_no_memory(request.message)
+            try:
+                if request.use_memory:
+                    result = await wrapper.achat(request.message)
+                else:
+                    result = await wrapper.achat_no_memory(request.message)
+            except Exception as e:
+                logger.error(f"chat error session={request.session_id}: {e}")
+                mark(500)
+                raise HTTPException(status_code=500, detail=str(e))
 
-        except Exception as e:
-            logger.error(f"chat error session={request.session_id}: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            # Состояние изменилось — фиксируем (no-op для in-memory, запись для Redis)
+            await store.commit(request.session_id)
 
-    memories = _memory_items(result.get("memories_used", []))
+        memories = _memory_items(result.get("memories_used", []))
+        mark(200)
 
     logger.info(
         f"chat session={request.session_id} "
         f"memories={len(memories)} "
         f"tokens_in={result.get('tokens_in', 0)} "
         f"latency={result.get('latency_ms', 0):.0f}ms"
+    )
+    metrics.record_chat(
+        result.get("tokens_in", 0), result.get("tokens_out", 0), len(memories),
     )
 
     return ChatResponse(
@@ -284,24 +432,33 @@ async def chat(
 async def store_memory(
     request: StoreRequest,
     _: None = Depends(verify_api_key),
+    x_api_key: Optional[str] = Header(default=None),
 ):
-    async with store.get_lock(request.session_id):
-        wrapper = store.get_or_create(request.session_id)
+    owner_id = _caller_owner_id(x_api_key)
+    with metrics.track_request("/store") as mark:
+        async with store.get_lock(request.session_id):
+            await _check_session_owner(request.session_id, owner_id)
+            wrapper = await store.get_or_create_async(request.session_id)
 
-        try:
-            emb = await wrapper.aembed_text(request.text)
-            wrapper.memory.store(
-                embedding=emb,
-                text=request.text,
-                concepts=request.concepts,
-                metadata=request.metadata or {},
-                domain=request.domain or "general",
-            )
-        except Exception as e:
-            logger.error(f"store error session={request.session_id}: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            try:
+                emb = await wrapper.aembed_text(request.text)
+                wrapper.memory.store(
+                    embedding=emb,
+                    text=request.text,
+                    concepts=request.concepts,
+                    metadata=request.metadata or {},
+                    domain=request.domain or "general",
+                )
+            except Exception as e:
+                logger.error(f"store error session={request.session_id}: {e}")
+                mark(500)
+                raise HTTPException(status_code=500, detail=str(e))
 
-    entries = wrapper.memory_entries_count
+            await store.commit(request.session_id)
+
+        entries = wrapper.memory_entries_count
+        mark(200)
+
     logger.info(f"store session={request.session_id} total_entries={entries}")
 
     return StoreResponse(
@@ -325,22 +482,36 @@ async def store_memory(
 async def retrieve_memory(
     request: RetrieveRequest,
     _: None = Depends(verify_api_key),
+    x_api_key: Optional[str] = Header(default=None),
 ):
-    wrapper = store.get_or_create(request.session_id)
+    owner_id = _caller_owner_id(x_api_key)
+    with metrics.track_request("/retrieve") as mark:
+        # Лок: /retrieve читает память (_rebuild_entry_index / _emb_buffer),
+        # параллельный /chat или /store на тот же session_id мутирует эти же
+        # структуры — без лока возможна гонка (кривой индекс или исключение).
+        async with store.get_lock(request.session_id):
+            await _check_session_owner(request.session_id, owner_id)
+            wrapper = await store.get_or_create_async(request.session_id)
 
-    try:
-        query_emb = await wrapper.aembed_text(request.query)
-        results = wrapper.memory.retrieve(
-            query_embedding=query_emb,
-            top_k=request.top_k,
-            use_graph=request.use_graph,
-        )
-        filtered = [r for r in results if r.get("score", 0) >= request.threshold]
-    except Exception as e:
-        logger.error(f"retrieve error session={request.session_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+            try:
+                query_emb = await wrapper.aembed_text(request.query)
+                results = wrapper.memory.retrieve(
+                    query_embedding=query_emb,
+                    top_k=request.top_k,
+                    use_graph=request.use_graph,
+                )
+                filtered = [r for r in results if r.get("score", 0) >= request.threshold]
+            except Exception as e:
+                logger.error(f"retrieve error session={request.session_id}: {e}")
+                mark(500)
+                raise HTTPException(status_code=500, detail=str(e))
 
-    items = _memory_items(filtered)
+            # retrieve может пересоздать lazy embedding-индекс — фиксируем для Redis
+            await store.commit(request.session_id)
+
+        items = _memory_items(filtered)
+        mark(200)
+
     # PRIVACY: текст запроса — пользовательские данные (медицина, финансы),
     # в логи не пишем; только длина и метаданные.
     logger.info(f"retrieve session={request.session_id} query_len={len(request.query)} found={len(items)}")
@@ -363,9 +534,19 @@ async def retrieve_memory(
 async def reset_session(
     request: NewSessionRequest,
     _: None = Depends(verify_api_key),
+    x_api_key: Optional[str] = Header(default=None),
 ):
+    owner_id = _caller_owner_id(x_api_key)
     async with store.get_lock(request.session_id):
-        deleted = store.reset(request.session_id)
+        # Сверяем владение ДО сброса — чужой не должен сбрасывать чужую сессию.
+        # ensure здесь не закрепляет новую (для несуществующей сессии владельца
+        # ещё нет → claim вернёт True, что корректно: сбрасывать нечего).
+        await _check_session_owner(request.session_id, owner_id, claim=False)
+        deleted = await store.reset_async(request.session_id)
+        # Сброс = полная очистка: снимаем и владение, иначе id останется
+        # «занятым» за прежним владельцем и его не сможет занять никто другой.
+        if _ownership is not None:
+            await _ownership.release(request.session_id)
     logger.info(f"reset session={request.session_id} existed={deleted}")
 
     return ResetResponse(
@@ -385,12 +566,16 @@ async def reset_session(
 async def session_stats(
     session_id: str,
     _: None = Depends(verify_api_key),
+    x_api_key: Optional[str] = Header(default=None),
 ):
-    wrapper = store.get(session_id)
-    if wrapper is None:
-        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+    owner_id = _caller_owner_id(x_api_key)
+    async with store.get_lock(session_id):
+        await _check_session_owner(session_id, owner_id, claim=False)
+        wrapper = await store.get_async(session_id)
+        if wrapper is None:
+            raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+        s = wrapper.get_stats()
 
-    s = wrapper.get_stats()
     return SessionStatsResponse(
         session_id=session_id,
         memory_entries=s["memory_entries"],
@@ -432,11 +617,20 @@ def run() -> None:
     """Запускает API через uvicorn: команда `ngt-api` после pip install."""
     import os
     import uvicorn
+    # Multi-worker безопасен только с redis-backend
+    workers = int(os.environ.get("NGT_WORKERS", "1"))
+    if workers > 1 and settings.session_backend != "redis":
+        logger.warning(
+            "NGT_WORKERS=%d с backend=memory небезопасно (сессии не шарятся между "
+            "процессами). Принудительно workers=1. Используйте NGT_SESSION_BACKEND=redis.",
+            workers,
+        )
+        workers = 1
     uvicorn.run(
         "api.main:app",
         host=os.environ.get("NGT_HOST", "0.0.0.0"),
         port=int(os.environ.get("NGT_PORT", "9190")),
-        workers=1,  # in-memory сессии — см. README
+        workers=workers,
     )
 
 

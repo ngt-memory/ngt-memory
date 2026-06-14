@@ -600,43 +600,51 @@ class NGTMemoryLLMWrapper:
     # ── Persistence (state сессии на диске) ───────────────────────────
 
     def save_state(self, base_path) -> None:
-        """Сохраняет полное состояние сессии на диск.
+        """Сохраняет полное состояние сессии на диск в безопасном v2-формате.
 
-        Создаёт два файла:
-          {base_path}.memory.pt  — память (NGTMemoryForLLM.save)
-          {base_path}.session.pt — профиль, история чата, статистика
+        Создаёт файлы:
+          {base_path}.memory.safetensors  — тензоры (embeddings)
+          {base_path}.memory.json         — entries/concepts/graph метаданные
+          {base_path}.session.json        — профиль, история чата, статистика
+
+        Заменяет небезопасный pickle (torch.save с weights_only=False).
         """
+        from api import persistence as p
         from pathlib import Path
 
         base_path = Path(base_path)
         base_path.parent.mkdir(parents=True, exist_ok=True)
-        self.memory.save(str(base_path) + ".memory.pt")
-        torch.save(
-            {
-                "profile": self.profile,
-                "chat_history": self._chat_history,
-                "stats": self._stats,
-            },
-            str(base_path) + ".session.pt",
-        )
+        p.save_memory(self.memory, base_path)
+        p.save_session_state(base_path, self.profile, self._chat_history, self._stats)
 
     def load_state(self, base_path) -> bool:
         """Загружает состояние сессии с диска. Возвращает True при успехе.
 
-        Если файлов нет — состояние не меняется и возвращается False
-        (сессия остаётся свежесозданной).
+        Порядок:
+          1. Пытается прочитать v2 (safetensors+json).
+          2. Если v2 нет, но есть легаси .pt — читает его (с предупреждением).
+             Сессия будет пересохранена в v2 при следующем save_state.
+          3. Если файлов нет — состояние не меняется, возвращает False.
         """
+        from api import persistence as p
         from pathlib import Path
 
         base_path = Path(base_path)
-        mem_path = Path(str(base_path) + ".memory.pt")
-        sess_path = Path(str(base_path) + ".session.pt")
-        if not mem_path.exists():
-            return False
-        self.memory = NGTMemoryForLLM.load(mem_path)
-        if sess_path.exists():
-            state = torch.load(str(sess_path), map_location="cpu", weights_only=False)
-            self.profile = state.get("profile") or UserProfile()
-            self._chat_history = state.get("chat_history", [])
-            self._stats = state.get("stats", self._stats)
-        return True
+
+        # 1. v2 формат
+        loaded_memory = p.load_memory(base_path)
+        if loaded_memory is not None:
+            self.memory = loaded_memory
+            sess = p.load_session_state(base_path)
+            if sess is not None:
+                self.profile, self._chat_history, stats = sess
+                if stats:
+                    self._stats = stats
+            return True
+
+        # 2. Легаси .pt — миграция
+        if p.legacy_pt_exists(base_path):
+            return p.load_legacy_pt(base_path, self)
+
+        # 3. Ничего нет
+        return False

@@ -977,19 +977,19 @@ class NGTMemoryForLLM:
         
         n_to_remove = len(self._entries) - target
         removed_ids = set()
+        # ИСПРАВЛЕНО (правка core): сначала собираем все id к удалению,
+        # потом одним проходом чистим инвертированный индекс.
         for eid, _ in scored[:n_to_remove]:
-            entry = self._entries.pop(eid, None)
-            if entry is not None:
+            if self._entries.pop(eid, None) is not None:
                 removed_ids.add(eid)
-                # Чистим инвертированный индекс концептов
-                for cid in entry.concept_ids:
-                    lst = self._concept_to_entries.get(cid)
-                    if lst:
-                        self._concept_to_entries[cid] = [
-                            x for x in lst if x not in removed_ids
-                        ]
 
         if removed_ids:
+            for cid, lst in list(self._concept_to_entries.items()):
+                filtered = [x for x in lst if x not in removed_ids]
+                if filtered:
+                    self._concept_to_entries[cid] = filtered
+                else:
+                    del self._concept_to_entries[cid]
             # Полный rebuild embedding матрицы после eviction
             self._index_dirty = True
             self._rebuild_entry_index()

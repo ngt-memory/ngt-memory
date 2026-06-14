@@ -59,6 +59,57 @@ class Settings(BaseSettings):
     session_ttl: int = Field(default=3600, ge=60, description="TTL сессии в секундах")
     max_sessions: int = Field(default=100, ge=1, description="Максимум активных сессий")
 
+    # ── Memory budget (глобальный лимит RAM) ─────────────────────────────
+    max_total_entries: int = Field(
+        default=200_000, ge=1000,
+        description="Суммарный лимит записей по всем сессиям; превышение → eviction.",
+    )
+    max_total_mb: int = Field(
+        default=2048, ge=64,
+        description="Суммарный бюджет памяти сессий в МБ; превышение → eviction.",
+    )
+
+    @property
+    def max_total_bytes(self) -> int:
+        return self.max_total_mb * 1024 * 1024
+
+    # ── Session backend ──────────────────────────────────────────────────
+    session_backend: str = Field(
+        default="memory",
+        description="Backend сессий: 'memory' (in-process) или 'redis' (multi-worker).",
+    )
+    redis_url: str = Field(
+        default="redis://localhost:6379/0",
+        description="URL Redis при session_backend=redis.",
+    )
+
+    @field_validator("session_backend")
+    @classmethod
+    def validate_backend(cls, v: str) -> str:
+        v = v.lower().strip()
+        if v not in {"memory", "redis"}:
+            raise ValueError(f"session_backend must be 'memory' or 'redis', got '{v}'")
+        return v
+
+    # ── Session ownership (привязка session_id к владельцу) ───────────────
+    session_ownership: str = Field(
+        default="auto",
+        description=(
+            "Привязка сессий к владельцу (хэш API-ключа): "
+            "'off' — выключено (self-hosted/один пользователь); "
+            "'auto' — включается при billing_enabled (мультиарендный хостинг); "
+            "'strict' — всегда включено, требует X-API-Key на каждом запросе к сессии."
+        ),
+    )
+
+    @field_validator("session_ownership")
+    @classmethod
+    def validate_ownership(cls, v: str) -> str:
+        v = v.lower().strip()
+        if v not in {"off", "auto", "strict"}:
+            raise ValueError(f"session_ownership must be 'off', 'auto' or 'strict', got '{v}'")
+        return v
+
     # ── Persistence ──────────────────────────────────────────────────────
     persist_dir: str = Field(
         default="",
@@ -68,6 +119,22 @@ class Settings(BaseSettings):
         default=300,
         ge=10,
         description="Период фонового сохранения всех сессий, сек.",
+    )
+
+    # ── Rate limiting ────────────────────────────────────────────────────
+    rate_limit_rps: float = Field(
+        default=0.0, ge=0.0,
+        description="Устойчивая частота запросов в секунду на ключ. 0 = выключено.",
+    )
+    rate_limit_burst: int = Field(
+        default=20, ge=1,
+        description="Размер всплеска (ёмкость token bucket).",
+    )
+
+    # ── Metrics ──────────────────────────────────────────────────────────
+    metrics_enabled: bool = Field(
+        default=True,
+        description="Экспонировать /metrics (требует prometheus_client).",
     )
 
     # ── Server ──────────────────────────────────────────────────────────
@@ -107,7 +174,7 @@ class Settings(BaseSettings):
     log_json: bool = Field(default=True, description="JSON формат логов")
 
     # ── Meta ─────────────────────────────────────────────────────────────
-    version: str = Field(default="0.23.0", description="Версия API")
+    version: str = Field(default="0.24.0", description="Версия API")
 
     @field_validator("log_level")
     @classmethod

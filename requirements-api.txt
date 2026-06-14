@@ -5,3 +5,8 @@ pydantic>=2.13.0
 pydantic-settings>=2.0.0
 python-dotenv>=1.0.0
 httpx>=0.27.0  # для тестирования API
+
+# Production hardening v0.24.0
+safetensors>=0.4         # безопасная персистентность (обязательно)
+prometheus-client>=0.20  # метрики /metrics (опционально)
+redis>=5.0               # Redis-backend для multi-worker (опционально)

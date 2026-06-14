@@ -1,3 +1,17 @@
+# ─────────────────────────────────────────────────────────────────────
+# NGT Memory API — docker-compose (v0.24.0)
+#
+# Профили (docker compose --profile <name> up):
+#   (без профиля)  — одиночный воркер, in-memory backend, персистентность на диск
+#   redis          — multi-worker через Redis backend (+ сервис redis)
+#   metrics        — добавляет Prometheus, скрапящий /metrics
+#
+# Примеры:
+#   docker compose up                      # self-hosted, 1 воркер
+#   docker compose --profile redis up      # multi-worker + redis
+#   docker compose --profile metrics up    # + prometheus
+# ─────────────────────────────────────────────────────────────────────
+
 services:
   ngt-memory-api:
     build: .
@@ -14,6 +28,14 @@ services:
       - NGT_MAX_SESSIONS=${NGT_MAX_SESSIONS:-100}
       - NGT_PERSIST_DIR=${NGT_PERSIST_DIR:-/data/sessions}
       - NGT_PERSIST_INTERVAL=${NGT_PERSIST_INTERVAL:-300}
+      # ── Hardening v0.24.0 ──
+      - NGT_SESSION_BACKEND=${NGT_SESSION_BACKEND:-memory}
+      - NGT_WORKERS=${NGT_WORKERS:-1}
+      - NGT_METRICS_ENABLED=${NGT_METRICS_ENABLED:-true}
+      - NGT_RATE_LIMIT_RPS=${NGT_RATE_LIMIT_RPS:-0}
+      - NGT_RATE_LIMIT_BURST=${NGT_RATE_LIMIT_BURST:-20}
+      - NGT_MAX_TOTAL_ENTRIES=${NGT_MAX_TOTAL_ENTRIES:-200000}
+      - NGT_MAX_TOTAL_MB=${NGT_MAX_TOTAL_MB:-2048}
     ports:
       - "9190:9190"
     volumes:
@@ -25,6 +47,51 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
+    depends_on:
+      redis:
+        condition: service_healthy
+        required: false
+
+  # ── Redis backend (профиль: redis) ─────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: ngt-memory-redis
+    restart: unless-stopped
+    profiles: ["redis"]
+    command: >
+      redis-server
+      --maxmemory 1gb
+      --maxmemory-policy allkeys-lru
+      --save ""
+      --appendonly no
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── Prometheus (профиль: metrics) ──────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ngt-memory-prometheus
+    restart: unless-stopped
+    profiles: ["metrics"]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - ngt-memory-api
 
 volumes:
   ngt-data:
+
+# ─────────────────────────────────────────────────────────────────────
+# Для multi-worker деплоя добавьте в .env:
+#   NGT_SESSION_BACKEND=redis
+#   NGT_REDIS_URL=redis://ngt-memory-redis:6379/0   # имя сервиса, не localhost
+#   NGT_WORKERS=4
+# и запускайте с --profile redis.
+# ─────────────────────────────────────────────────────────────────────

@@ -38,6 +38,10 @@ desktop.ini
 .env.production
 .cloud_state.json
 
+# Session persistence & ownership (пользовательские данные)
+sessions/
+owners.json
+
 # Jupyter
 .ipynb_checkpoints/
 notebooks/
