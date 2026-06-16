@@ -19,14 +19,19 @@ Instead of forgetting everything between conversations, the LLM remembers:
 - Past decisions and context
 - Cross-domain facts (medical + dietary + travel all linked)
 
-**Benchmark results (Exp 44, gpt-4o-mini):**
+**Benchmark results — deep evaluation (YandexGPT, 17 real scenarios):**
 
-| Mode | Factual consistency (0-3) | Keyword hit |
-|------|--------------------------|-------------|
-| **NGT Memory (graph)** | **2.33 / 3** | **44%** |
-| **NGT Memory (emb)** | **2.44 / 3** | **44%** |
-| No memory | 1.22 / 3 | 27% |
-| **Δ improvement** | **+1.22 (+100%)** | **+17pp** |
+| Metric | No memory | With memory |
+|--------|-----------|-------------|
+| **Factual accuracy** (recall + distractor + contradiction) | 0.31 | **0.92** (+0.62) |
+| **No-false-memory precision** (control questions) | — | **1.00** |
+| recall — recall a stored fact | 0.12 | **1.00** |
+| contradiction — correct the user | 0.67 | **1.00** |
+| Latency / input tokens (avg) | 1159 ms / 267 | 1456 ms / 403 |
+
+Memory lifts factual accuracy from 31% to 92% while never injecting wrong facts
+on unrelated questions (precision 1.00). Full report & raw data:
+[`eval/RESULTS.md`](eval/RESULTS.md) · [`eval/deep_latest.json`](eval/deep_latest.json).
 
 Real example — **without memory**:
 > User: "What restaurants in Kyoto would you recommend?"
@@ -372,15 +377,26 @@ End-to-end retrieval (Exp 44, via API with OpenAI embeddings):
 | Tech support | 2.3 ms | 357 ms |
 | **Average** | **2.5 ms** | **764 ms** |
 
-Realistic profile A/B test (Exp 48, `gpt-4.1-nano`, local Docker, single worker):
+### Deep evaluation (7 axes, YandexGPT, 17 scenarios)
 
-| Metric | With memory | No memory |
-|--------|-------------|-----------|
-| Avg profile-aware score | **0.917** | **0.083** |
-| Scenario wins | **5 / 6** | 0 / 6 |
-| Retrieval success | **6 / 6** | — |
+End-to-end on a real LLM — facts are taught, pushed out of the short-term
+window with filler turns, then the same question is asked with and without
+memory (`python -m eval.deep_eval`):
 
-This experiment uses realistic user-profile scenarios (medical, travel, support, billing, fitness) and compares `use_memory=true` vs `use_memory=false` on the same prompts.
+| Axis | No memory | With memory |
+|------|-----------|-------------|
+| recall (recall a fact) | 0.12 | **1.00** |
+| distractor (1 fact among ~10 noise) | 0.50 | 0.50 |
+| contradiction (correct the user) | 0.67 | **1.00** |
+| control — no-false-memory precision | — | **1.00** (0 leaks) |
+| retrieval recall@5 / MRR / hit@1 | — | **1.00 / 1.00 / 1.00** |
+| persistence (save → reload) | — | **PASS** |
+| cost — latency / input tokens (avg) | 1159 ms / 267 | 1456 ms / 403 |
+
+Honest notes: `distractor` failed for **both** modes on a vague query with heavy
+noise (retrieval surfaced a distractor) — the test is not rigged. The
+association graph adds nothing on this easy retrieval set (direct vector search
+is already perfect). Full report: [`eval/RESULTS.md`](eval/RESULTS.md).
 
 ---
 
