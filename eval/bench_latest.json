@@ -1,0 +1,222 @@
+{
+  "timestamp": "2026-06-16T03:19:46.695276+00:00",
+  "scenarios": 8,
+  "filler_turns": 6,
+  "accuracy_baseline": 0.0,
+  "accuracy_memory": 1.0,
+  "lift": 1.0,
+  "avg_latency_ms": {
+    "baseline": 956.8,
+    "memory": 1755.8
+  },
+  "avg_tokens_in": {
+    "baseline": 266.1,
+    "memory": 406.4
+  },
+  "avg_tokens_out": {
+    "baseline": 67.1,
+    "memory": 137.2
+  },
+  "results": [
+    {
+      "id": "allergy",
+      "query": "What antibiotics should I avoid?",
+      "expect_keywords": [
+        "penicillin",
+        "amoxicillin"
+      ],
+      "baseline": {
+        "hit": false,
+        "response": "I'm not a medical professional, so I can't provide personalized medical advice. It's best to consult with a healthcare provider about which antibiotics to avoid. They can consider your medical history and any allergies you may have.",
+        "tokens_in": 263,
+        "tokens_out": 47,
+        "latency_ms": 715.4
+      },
+      "memory": {
+        "hit": true,
+        "response": "Given that you're allergic to penicillin and had a bad reaction to amoxicillin, it's advisable to avoid penicillin-based antibiotics. Please consult with your healthcare provider for personalized medical advice.",
+        "memories_used": 5,
+        "tokens_in": 427,
+        "tokens_out": 42,
+        "latency_ms": 913.5
+      }
+    },
+    {
+      "id": "diet",
+      "query": "Can you suggest a protein source for me?",
+      "expect_keywords": [
+        "vegetarian",
+        "meat",
+        "fish"
+      ],
+      "baseline": {
+        "hit": false,
+        "response": "Of course! What kind of diet do you follow? Do you consume animal products?",
+        "tokens_in": 266,
+        "tokens_out": 17,
+        "latency_ms": 351.7
+      },
+      "memory": {
+        "hit": true,
+        "response": "Since you're a strict vegetarian, some great protein sources for you include beans, lentils, tofu, nuts, and seeds. These are excellent options to incorporate into your diet.",
+        "memories_used": 5,
+        "tokens_in": 428,
+        "tokens_out": 38,
+        "latency_ms": 734.2
+      }
+    },
+    {
+      "id": "location",
+      "query": "What should I consider when buying a car for my climate?",
+      "expect_keywords": [
+        "novosibirsk",
+        "minus 30",
+        "winter"
+      ],
+      "baseline": {
+        "hit": false,
+        "response": "When buying a car for your climate, consider the following factors:\n\n1. **Engine performance:** Extreme temperatures can affect engine performance. Ensure the car's engine is suitable for your climate.\n2. **Cooling and heating systems:** Efficient climate control is essential for comfort and safety. Check the car's heating and air conditioning systems.\n3. **Tires:** Different climates require different types of tires. For example, snow tires are essential for areas with heavy snowfall.\n4. **Insulation:** Proper insulation helps maintain a comfortable interior temperature. This is particularly important in very hot or cold climates.\n5. **Rust protection:** If you live in an area with high humidity or salt exposure, look for cars with good rust protection.\n6. **Visibility:** Ensure the car has good visibility features, such as defrosters and wipers, to handle adverse weather conditions.\n7. **Maintenance:** Consider the ease and cost of maintenance specific to your climate. Some climates may require more frequent checks and upkeep.\n\nThese factors should help you choose a car that suits your climate conditions.",
+        "tokens_in": 269,
+        "tokens_out": 231,
+        "latency_ms": 2860.0
+      },
+      "memory": {
+        "hit": true,
+        "response": "Given that you live in Novosibirsk, where winter temperatures can drop to minus 30 degrees, here are some factors to consider when buying a car:\n\n1. **Engine**: Ensure the car has a reliable engine that can handle cold starts and extreme temperatures.\n2. **Insulation and Heating**: Good insulation and a powerful heating system are essential for comfort and safety in cold weather.\n3. **Tires**: Winter tires with good traction are crucial for driving safety on snowy and icy roads.\n4. **Battery**: A strong battery that can withstand cold temperatures will help prevent starting issues.\n5. **Fuel System**: The fuel system should be designed to handle cold weather without issues like fuel line freezing.\n6. **Visibility**: Good headlights and possibly additional lighting can improve visibility in snowy conditions.\n7. **Defrosting System**: An efficient defrosting system is important for quick clearing of windows.\n8. **All-Wheel Drive (AWD) or Four-Wheel Drive (4WD)**: These can provide better traction and control in slippery conditions.",
+        "memories_used": 5,
+        "tokens_in": 426,
+        "tokens_out": 227,
+        "latency_ms": 2682.2
+      }
+    },
+    {
+      "id": "profession",
+      "query": "What kind of schedule advice fits my job?",
+      "expect_keywords": [
+        "surgeon",
+        "night shift",
+        "pediatric"
+      ],
+      "baseline": {
+        "hit": false,
+        "response": "To provide the best advice, I'd need to know more about your job and daily routine. Could you tell me what your work involves and what your typical day looks like?",
+        "tokens_in": 266,
+        "tokens_out": 36,
+        "latency_ms": 604.5
+      },
+      "memory": {
+        "hit": true,
+        "response": "Given that you're a pediatric surgeon and often work night shifts, here are some scheduling tips to help manage your work and personal life:\n\n1. **Consistent Sleep Patterns:** Try to maintain a consistent sleep schedule, even on your days off, to help regulate your internal clock.\n2. **Rest Periods:** Ensure you have enough rest periods between shifts to avoid fatigue and burnout.\n3. **Flexible Breaks:** Use your breaks wisely, perhaps stepping out onto your balcony for some fresh air.\n4. **Plan Ahead:** Since you're planning a trip next spring, try to schedule it during a period with fewer night shifts or plan some time off in advance.\n5. **Healthy Diet:** Keep healthy snacks on hand to maintain energy levels during long shifts.\n6. **Relaxation Techniques:** Consider incorporating relaxation techniques, such as listening to jazz music, to help unwind after work.\n\nLet me know if you need more specific advice!",
+        "memories_used": 5,
+        "tokens_in": 393,
+        "tokens_out": 202,
+        "latency_ms": 2501.5
+      }
+    },
+    {
+      "id": "family",
+      "query": "Any recommendations for a family vacation?",
+      "expect_keywords": [
+        "three",
+        "children",
+        "baby"
+      ],
+      "baseline": {
+        "hit": false,
+        "response": "Of course! What type of vacation do you prefer? Beach, city exploration, or adventure activities?",
+        "tokens_in": 264,
+        "tokens_out": 20,
+        "latency_ms": 395.3
+      },
+      "memory": {
+        "hit": true,
+        "response": "Since you have three young children, including a baby, you might consider family-friendly destinations with amenities for young kids. Perhaps a place with parks, playgrounds, and family-oriented activities would be ideal. If you're interested in cultural experiences, destinations that offer kid-friendly museums or historical sites could be a good choice. Also, since you used to live abroad, you might appreciate visiting a place with a different culture and language. What do you think?",
+        "memories_used": 5,
+        "tokens_in": 391,
+        "tokens_out": 94,
+        "latency_ms": 1221.2
+      }
+    },
+    {
+      "id": "pet",
+      "query": "What should I keep in mind for my pet's exercise?",
+      "expect_keywords": [
+        "retriever",
+        "max",
+        "arthritis"
+      ],
+      "baseline": {
+        "hit": false,
+        "response": "When planning exercise for your pet, consider their breed, age, and health condition. Different pets have different needs. For example, dogs may need daily walks and playtime, while cats might enjoy short bursts of play with toys. Always consult with a veterinarian for personalized advice.",
+        "tokens_in": 270,
+        "tokens_out": 57,
+        "latency_ms": 787.3
+      },
+      "memory": {
+        "hit": true,
+        "response": "Considering that Max has arthritis in his hind legs, it's important to focus on low-impact exercises that won't strain his joints. Gentle walks, short sessions of swimming, or even physical therapy exercises recommended by a vet could be beneficial. Always consult with your veterinarian for personalized advice on exercise routines suitable for Max's condition.",
+        "memories_used": 5,
+        "tokens_in": 394,
+        "tokens_out": 70,
+        "latency_ms": 948.8
+      }
+    },
+    {
+      "id": "tech",
+      "query": "What ORM or query library fits my stack?",
+      "expect_keywords": [
+        "rust",
+        "postgres",
+        "axum"
+      ],
+      "baseline": {
+        "hit": false,
+        "response": "To suggest the most suitable ORM or query library for your stack, I'd need to know more about the technologies you're using. Could you please tell me which programming language and database you're working with?",
+        "tokens_in": 267,
+        "tokens_out": 45,
+        "latency_ms": 861.3
+      },
+      "memory": {
+        "hit": true,
+        "response": "Since you're using PostgreSQL as your database and building a backend in Rust with the Axum framework, you might consider using one of the following Rust libraries for database interactions:\n\n1. **diesel** — a popular ORM that supports PostgreSQL and provides a safe and expressive way to interact with databases.\n2. **sqlx** — a modern, async-first library that supports PostgreSQL and offers both an ORM-like experience and raw SQL query capabilities.\n3. **SeaORM** — a newer ORM that supports PostgreSQL and provides a type-safe and ergonomic way to work with databases.\n\nThese libraries should fit well with your current stack and provide the functionality you need for database operations.",
+        "memories_used": 5,
+        "tokens_in": 397,
+        "tokens_out": 148,
+        "latency_ms": 1823.5
+      }
+    },
+    {
+      "id": "fitness",
+      "query": "How should I plan my nutrition?",
+      "expect_keywords": [
+        "marathon",
+        "50 kilometers",
+        "run"
+      ],
+      "baseline": {
+        "hit": false,
+        "response": "Planning your nutrition involves several considerations such as your daily calorie needs, macronutrient balance, and micronutrient intake. It's important to include a variety of foods in your diet to ensure you get all the necessary vitamins and minerals. If you have specific dietary goals or health conditions, these should also be taken into account. Can you tell me more about your dietary preferences or any health goals you have?",
+        "tokens_in": 264,
+        "tokens_out": 84,
+        "latency_ms": 1078.5
+      },
+      "memory": {
+        "hit": true,
+        "response": "Given that you're training for a marathon in three months and run about 50 kilometers per week, your nutrition should support your training and recovery. Here are some general guidelines:\n\n1. **Carbohydrates**: Increase your intake of complex carbohydrates like whole grains, vegetables, and fruits to provide sustained energy.\n2. **Proteins**: Include lean proteins in your diet to help with muscle repair and recovery. Good sources include chicken, fish, eggs, beans, and lentils.\n3. **Hydration**: Keep up your water intake, as staying hydrated is crucial for performance and recovery.\n4. **Healthy Fats**: Incorporate healthy fats from sources like nuts, seeds, avocados, and olive oil for long-term energy and overall health.\n5. **Timing**: Consider the timing of your meals and snacks. Eating a balanced meal with carbohydrates and proteins before and after your runs can help with energy and recovery.\n6. **Electrolytes**: During long runs, consider electrolyte replacement to maintain optimal performance.\n7. **Consult a Professional**: It might be beneficial to consult with a sports nutritionist or dietitian who can provide personalized advice based on your specific needs and goals.\n\nRemember, everyone's nutritional needs are different, so it's important to find what works best for you.",
+        "memories_used": 5,
+        "tokens_in": 395,
+        "tokens_out": 277,
+        "latency_ms": 3221.3
+      }
+    }
+  ],
+  "model": {
+    "provider": "YandexGPT",
+    "chat_model": "gpt://b1gg5v2e9fp3cuqh4k2f/yandexgpt/latest",
+    "embedding_model": "emb://b1gg5v2e9fp3cuqh4k2f/text-search-doc/latest",
+    "embedding_dim": 256,
+    "memory_top_k": 5,
+    "memory_threshold": 0.25,
+    "use_graph": true
+  }
+}

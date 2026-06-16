@@ -1,5 +1,23 @@
 # NGT Memory — Eval Harness
 
+Два уровня оценки:
+
+- **Retrieval** (`run_eval.py`) — всплывает ли нужный факт в топ-K, не утонув
+  среди отвлекающих записей. Метрики: recall@k, precision@k, MRR, hit@1.
+- **End-to-end** (`bench_memory_vs_baseline.py`) — помогает ли память
+  настоящему LLM правильно ответить: точность с памятью vs без неё. Реальные
+  результаты — в [`RESULTS.md`](./RESULTS.md).
+
+```bash
+# End-to-end: память vs baseline (реальные вызовы LLM, конфиг из .env)
+python -m eval.bench_memory_vs_baseline --out eval/results
+python -m eval.bench_memory_vs_baseline --json
+```
+
+---
+
+## Retrieval-харнесс
+
 Измеряет главное свойство памяти: **всплывает ли нужный факт в retrieval**,
 когда пользователь задаёт связанный вопрос, не утонув среди отвлекающих записей.
 
