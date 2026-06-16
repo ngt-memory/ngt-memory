@@ -78,32 +78,40 @@ def _build_wrapper():
     )
 
 
-def eval_scenario(scenario: Dict, filler: int, verbose: bool) -> Dict:
-    """Прогоняет один сценарий: учит факты в память, вытесняет их филлером,
-    задаёт вопрос с памятью и без, сравнивает."""
-    wrapper = _build_wrapper()
+def teach_and_fill(wrapper, facts: List[str], distractors: List[str], filler: int) -> List[Dict]:
+    """Учит факты+дистракторы в долгосрочную память и строит историю чата,
+    где факты вынесены за окно последних 6 сообщений филлером.
 
+    Возвращает построенную историю (для восстановления между прогонами).
+    """
     # 1. Факты → долгосрочная память + профиль (без вызова LLM).
-    for i, fact in enumerate(scenario["facts"]):
+    for i, fact in enumerate(facts):
         emb = wrapper._embed(fact)
         wrapper._store(fact, emb, role="user", turn=i)
         wrapper.profile.extract_and_update(fact, confidence=1.0, source="user_explicit")
     # Дистракторы тоже в память — реалистичный шум.
-    for j, dtext in enumerate(scenario.get("distractors", [])):
+    for j, dtext in enumerate(distractors):
         emb = wrapper._embed(dtext)
         wrapper._store(dtext, emb, role="user", turn=100 + j)
     wrapper.memory.flush_hebbian()
 
-    # 2. История: факты как «давние» реплики, затем филлер, чтобы факты
-    #    оказались за пределами окна последних 6 сообщений.
+    # 2. История: факты как «давние» реплики, затем филлер.
     history: List[Dict] = []
-    for fact in scenario["facts"]:
+    for fact in facts:
         history.append({"role": "user", "content": fact})
         history.append({"role": "assistant", "content": "Got it, I'll remember that."})
     for u, a in _FILLER_TURNS[:max(filler, 4)]:
         history.append({"role": "user", "content": u})
         history.append({"role": "assistant", "content": a})
     wrapper._chat_history = list(history)
+    return history
+
+
+def eval_scenario(scenario: Dict, filler: int, verbose: bool) -> Dict:
+    """Прогоняет один сценарий: учит факты в память, вытесняет их филлером,
+    задаёт вопрос с памятью и без, сравнивает."""
+    wrapper = _build_wrapper()
+    history = teach_and_fill(wrapper, scenario["facts"], scenario.get("distractors", []), filler)
 
     query = scenario["query"]
     keywords = scenario["expect_keywords"]

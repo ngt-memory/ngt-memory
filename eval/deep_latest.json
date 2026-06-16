@@ -1,0 +1,606 @@
+{
+  "timestamp": "2026-06-16T03:33:28.344230+00:00",
+  "model": {
+    "provider": "YandexGPT",
+    "chat_model": "gpt://b1gg5v2e9fp3cuqh4k2f/yandexgpt/latest",
+    "embedding_model": "emb://b1gg5v2e9fp3cuqh4k2f/text-search-doc/latest",
+    "embedding_dim": 256,
+    "memory_top_k": 5,
+    "memory_threshold": 0.25,
+    "use_graph": true
+  },
+  "e2e": {
+    "scenarios": 17,
+    "filler_turns": 6,
+    "factual_accuracy_baseline": 0.308,
+    "factual_accuracy_memory": 0.923,
+    "factual_lift": 0.615,
+    "no_false_memory_precision": 1.0,
+    "by_type": {
+      "recall": {
+        "n": 8,
+        "accuracy_baseline": 0.125,
+        "accuracy_memory": 1.0
+      },
+      "distractor": {
+        "n": 2,
+        "accuracy_baseline": 0.5,
+        "accuracy_memory": 0.5
+      },
+      "contradiction": {
+        "n": 3,
+        "accuracy_baseline": 0.667,
+        "accuracy_memory": 1.0
+      },
+      "control": {
+        "n": 4,
+        "accuracy_baseline": 1.0,
+        "accuracy_memory": 1.0,
+        "leak_rate_memory": 0.0,
+        "no_false_memory_precision": 1.0
+      }
+    },
+    "cost": {
+      "avg_latency_ms": {
+        "baseline": 1158.6,
+        "memory": 1456.2
+      },
+      "avg_tokens_in": {
+        "baseline": 267.1,
+        "memory": 403.2
+      },
+      "avg_tokens_out": {
+        "baseline": 84.0,
+        "memory": 106.6
+      }
+    },
+    "results": [
+      {
+        "id": "allergy",
+        "type": "recall",
+        "query": "What antibiotics should I avoid?",
+        "expect_keywords": [
+          "penicillin",
+          "amoxicillin"
+        ],
+        "forbid_keywords": [],
+        "baseline": {
+          "response": "I'm not a medical professional, so I can't provide personalized medical advice. It's best to consult with a healthcare provider about which antibiotics to avoid. They can provide guidance based on your health history and current condition.",
+          "hit": false,
+          "leak": false,
+          "tokens_in": 263,
+          "tokens_out": 47,
+          "latency_ms": 800.5
+        },
+        "memory": {
+          "response": "Given that you're allergic to penicillin and had a bad reaction to amoxicillin, it's advisable to avoid penicillin-based antibiotics. It's also important to consult with your healthcare provider for personalized medical advice.",
+          "hit": true,
+          "leak": false,
+          "memories_used": 5,
+          "tokens_in": 427,
+          "tokens_out": 47,
+          "latency_ms": 1055.1
+        }
+      },
+      {
+        "id": "diet",
+        "type": "recall",
+        "query": "Can you suggest a protein source for me?",
+        "expect_keywords": [
+          "vegetarian",
+          "meat",
+          "fish",
+          "bean",
+          "lentil",
+          "tofu"
+        ],
+        "forbid_keywords": [],
+        "baseline": {
+          "response": "Of course! What type of diet do you follow? Do you consume animal products?",
+          "hit": false,
+          "leak": false,
+          "tokens_in": 266,
+          "tokens_out": 17,
+          "latency_ms": 465.3
+        },
+        "memory": {
+          "response": "Since you're a strict vegetarian, some good protein sources for you include legumes, nuts, seeds, and tofu. These are all excellent options to incorporate into your diet.",
+          "hit": true,
+          "leak": false,
+          "memories_used": 5,
+          "tokens_in": 428,
+          "tokens_out": 37,
+          "latency_ms": 856.6
+        }
+      },
+      {
+        "id": "location",
+        "type": "recall",
+        "query": "What should I consider when buying a car for my climate?",
+        "expect_keywords": [
+          "novosibirsk",
+          "minus 30",
+          "winter",
+          "cold"
+        ],
+        "forbid_keywords": [],
+        "baseline": {
+          "response": "When buying a car suitable for your climate, consider the following factors:\n\n1. **Engine performance**: Extreme temperatures can affect engine performance. Ensure the car's engine is designed to handle the temperature range in your area.\n2. **Cooling system**: In hot climates, a robust cooling system is essential to prevent overheating. For cold climates, the cooling system should also be efficient to warm up the engine quickly.\n3. **Tires**: Choose tires appropriate for your climate. All-season tires may be sufficient for mild climates, while snow tires are necessary for regions with heavy snowfall.\n4. **Insulation and heating**: Proper insulation and a reliable heating system are crucial for cold climates. Ensure the car has effective insulation to retain heat.\n5. **Air conditioning**: For hot climates, a powerful air conditioning system is important for comfort and safety during long drives.\n6. **Corrosion protection**: In areas with high humidity or salt exposure (e.g., near the sea), corrosion protection is essential to prolong the car's lifespan.\n7. **Maintenance**: Consider the availability of maintenance services for the specific car model in your area. Regular maintenance is crucial to keep the car in optimal condition for your climate.\n\nThese factors will help ensure that the car you choose is well-suited to your local climate conditions.",
+          "hit": true,
+          "leak": false,
+          "tokens_in": 269,
+          "tokens_out": 282,
+          "latency_ms": 3278.1
+        },
+        "memory": {
+          "response": "Given that you live in Novosibirsk, where winter temperatures can drop to minus 30 degrees, here are some factors to consider when buying a car:\n\n1. **Engine**: Ensure the car has a reliable engine that can handle cold starts and extreme temperatures.\n2. **Insulation and Heating**: Good insulation and a powerful heating system are essential for comfort and safety in cold weather.\n3. **Tires**: Winter tires with good traction are crucial for driving on snow and ice.\n4. **Battery**: A strong battery that can withstand cold temperatures will help prevent starting issues.\n5. **Fuel System**: The fuel system should be designed to handle cold weather without issues like gelling of diesel fuel.\n6. **Visibility**: Good headlights and defrosting systems are important for visibility in snowy conditions.\n7. **Body and Frame**: Consider a vehicle with a sturdy body and frame that can handle the weight of snow and ice.",
+          "hit": true,
+          "leak": false,
+          "memories_used": 5,
+          "tokens_in": 426,
+          "tokens_out": 197,
+          "latency_ms": 2276.7
+        }
+      },
+      {
+        "id": "profession",
+        "type": "recall",
+        "query": "What kind of schedule advice fits my job?",
+        "expect_keywords": [
+          "surgeon",
+          "night shift",
+          "pediatric",
+          "night"
+        ],
+        "forbid_keywords": [],
+        "baseline": {
+          "response": "To give you the best advice, I'd need more details about your job. Could you tell me what you do for a living?",
+          "hit": false,
+          "leak": false,
+          "tokens_in": 266,
+          "tokens_out": 28,
+          "latency_ms": 698.5
+        },
+        "memory": {
+          "response": "Given that you often work night shifts as a pediatric surgeon, it's important to manage your schedule to ensure you get enough rest and maintain your health. Here are some tips:\n\n1. **Consistent Sleep Patterns:** Try to maintain a consistent sleep schedule, even on your days off, to regulate your body's internal clock.\n2. **Rest Before Shifts:** Ensure you get adequate rest before a night shift to stay alert and focused during work.\n3. **Healthy Diet:** Eating a balanced diet can help boost your energy levels. Avoid heavy meals before shifts, as they can make you feel sluggish.\n4. **Short Breaks:** Take short breaks during your shifts to rest and recharge.\n5. **Exercise:** Regular physical activity can improve your energy levels and overall health, but try to avoid exercising too close to bedtime.\n6. **Create a Restful Environment:** Make your sleeping environment as dark and quiet as possible to improve sleep quality.\n7. **Limit Caffeine:** While it can help keep you alert, limit caffeine intake, especially close to your sleep time, to avoid disrupting your sleep.",
+          "hit": true,
+          "leak": false,
+          "memories_used": 5,
+          "tokens_in": 393,
+          "tokens_out": 237,
+          "latency_ms": 2665.7
+        }
+      },
+      {
+        "id": "family",
+        "type": "recall",
+        "query": "Any recommendations for a family vacation?",
+        "expect_keywords": [
+          "three",
+          "children",
+          "baby",
+          "young",
+          "kid"
+        ],
+        "forbid_keywords": [],
+        "baseline": {
+          "response": "Of course! What type of vacation do you prefer: beach, city exploration, or adventure activities? Do you have any specific interests or places in mind?",
+          "hit": false,
+          "leak": false,
+          "tokens_in": 264,
+          "tokens_out": 31,
+          "latency_ms": 489.3
+        },
+        "memory": {
+          "response": "Since you have three young children under the age of six, including a baby, you might consider a family-friendly destination with amenities for young kids. Perhaps a place with good entertainment and activities for children, like a theme park, zoo, or a destination with a nice playground and outdoor space. If you're interested in cultural experiences, you could also consider visiting places that offer kid-friendly museums or interactive exhibits. Given your experience living abroad, you might also enjoy a vacation that offers a taste of different cultures, perhaps a multicultural city with family-friendly attractions.",
+          "hit": true,
+          "leak": false,
+          "memories_used": 5,
+          "tokens_in": 391,
+          "tokens_out": 115,
+          "latency_ms": 1512.2
+        }
+      },
+      {
+        "id": "pet",
+        "type": "recall",
+        "query": "What should I keep in mind for my pet's exercise?",
+        "expect_keywords": [
+          "retriever",
+          "max",
+          "arthritis",
+          "joint"
+        ],
+        "forbid_keywords": [],
+        "baseline": {
+          "response": "To ensure your pet gets the right amount of exercise, consider their breed, age, and health condition. Regular physical activity is essential for their overall well-being, but it's important not to overexert them. Always consult with a veterinarian for personalized advice.",
+          "hit": false,
+          "leak": false,
+          "tokens_in": 270,
+          "tokens_out": 56,
+          "latency_ms": 797.6
+        },
+        "memory": {
+          "response": "Considering your pet Max has arthritis in his hind legs, it's important to focus on low-impact exercises that minimize stress on his joints. Gentle walks, short sessions of swimming, or even physical therapy exercises recommended by a vet could be beneficial. Always consult with a veterinarian to tailor the exercise routine to Max's specific needs and health condition.",
+          "hit": true,
+          "leak": false,
+          "memories_used": 5,
+          "tokens_in": 394,
+          "tokens_out": 72,
+          "latency_ms": 968.5
+        }
+      },
+      {
+        "id": "tech",
+        "type": "recall",
+        "query": "What ORM or query library fits my stack?",
+        "expect_keywords": [
+          "rust",
+          "postgres",
+          "axum",
+          "diesel",
+          "sqlx",
+          "sea-orm"
+        ],
+        "forbid_keywords": [],
+        "baseline": {
+          "response": "To suggest the best ORM or query library for your stack, I'd need to know more about your current technology setup. Could you please tell me which programming language and database you're using?",
+          "hit": false,
+          "leak": false,
+          "tokens_in": 267,
+          "tokens_out": 41,
+          "latency_ms": 645.6
+        },
+        "memory": {
+          "response": "Since you're using PostgreSQL as your database and building a backend in Rust with the Axum framework, you might consider using one of the following libraries:\n\n1. **SeaORM** — a modern, async-first ORM for Rust that supports PostgreSQL and integrates well with Axum.\n2. **Diesel** — a popular Rust ORM that provides a safe abstraction over SQL queries and supports PostgreSQL.\n3. **SQLx** — a pure Rust SQL library that offers type-safe query building and execution. It supports PostgreSQL and can be used with Axum.\n\nThese libraries should fit well with your current stack and provide the functionality you need for database operations.",
+          "hit": true,
+          "leak": false,
+          "memories_used": 5,
+          "tokens_in": 397,
+          "tokens_out": 140,
+          "latency_ms": 1701.3
+        }
+      },
+      {
+        "id": "fitness",
+        "type": "recall",
+        "query": "How should I plan my nutrition?",
+        "expect_keywords": [
+          "marathon",
+          "50 kilometers",
+          "run",
+          "carb",
+          "endurance"
+        ],
+        "forbid_keywords": [],
+        "baseline": {
+          "response": "Planning your nutrition involves several considerations such as your age, gender, activity level, and health goals. A balanced diet should include a variety of foods from different food groups like fruits, vegetables, proteins, grains, and dairy. It's also important to control portion sizes and limit the intake of sugary and fatty foods. If you have specific health concerns or dietary restrictions, it might be beneficial to consult with a nutritionist or dietitian for personalized advice.",
+          "hit": false,
+          "leak": false,
+          "tokens_in": 264,
+          "tokens_out": 92,
+          "latency_ms": 1137.5
+        },
+        "memory": {
+          "response": "Given that you're training for a marathon in three months and run about 50 kilometers per week, your nutrition should support your training regimen. Here are some tips:\n\n1. **Carbohydrates**: Increase your intake of complex carbohydrates like whole grains, fruits, and vegetables to provide sustained energy.\n2. **Proteins**: Include lean proteins such as chicken, fish, beans, and lentils to help repair and build muscle tissue.\n3. **Hydration**: Since you already drink a lot of water, keep it up! Proper hydration is crucial, especially during long runs.\n4. **Timing**: Consider the timing of your meals. Eating a balanced meal with carbohydrates and proteins before and after your runs can help optimize performance and recovery.\n5. **Caloric intake**: Monitor your caloric intake to ensure you're meeting the energy demands of your training without overeating.\n6. **Snacks**: Have healthy snacks like bananas, energy bars, or nuts readily available to keep your energy levels up throughout the day.\n\nRemember, it's important to consult with a registered dietitian or nutritionist to create a personalized nutrition plan that fits your specific needs and goals.",
+          "hit": true,
+          "leak": false,
+          "memories_used": 5,
+          "tokens_in": 395,
+          "tokens_out": 247,
+          "latency_ms": 2907.4
+        }
+      },
+      {
+        "id": "distractor_lactose",
+        "type": "distractor",
+        "query": "Can I order a big milkshake for dessert?",
+        "expect_keywords": [
+          "lactose",
+          "dairy",
+          "milk",
+          "intoleran"
+        ],
+        "forbid_keywords": [],
+        "baseline": {
+          "response": "Sure, you can order a big milkshake for dessert. Would you like any specific flavor?",
+          "hit": true,
+          "leak": false,
+          "tokens_in": 267,
+          "tokens_out": 19,
+          "latency_ms": 423.1
+        },
+        "memory": {
+          "response": "Considering that you are severely lactose intolerant, a milkshake might not be the best choice for you. Would you like suggestions for other dessert options?",
+          "hit": true,
+          "leak": false,
+          "memories_used": 5,
+          "tokens_in": 396,
+          "tokens_out": 32,
+          "latency_ms": 584.8
+        }
+      },
+      {
+        "id": "distractor_mobility",
+        "type": "distractor",
+        "query": "Recommend a fun weekend outing for me.",
+        "expect_keywords": [
+          "wheelchair",
+          "accessible",
+          "stairs",
+          "step-free",
+          "ramp"
+        ],
+        "forbid_keywords": [],
+        "baseline": {
+          "response": "Sure, I'd be happy to help! Could you please tell me what kind of activities you enjoy? Do you prefer outdoor adventures, cultural experiences, or perhaps something else?",
+          "hit": false,
+          "leak": false,
+          "tokens_in": 266,
+          "tokens_out": 36,
+          "latency_ms": 627.2
+        },
+        "memory": {
+          "response": "Since you're a fan of board games, you might enjoy visiting a local game cafe where you can play board games with friends or meet new people who share your interest. If the weather is nice, you could also consider having a picnic and bringing along some board games to enjoy outdoors.",
+          "hit": false,
+          "leak": false,
+          "memories_used": 5,
+          "tokens_in": 394,
+          "tokens_out": 58,
+          "latency_ms": 985.2
+        }
+      },
+      {
+        "id": "contradiction_diet",
+        "type": "contradiction",
+        "query": "I'm about to order a big rare steak tonight — any cooking tips?",
+        "expect_keywords": [
+          "vegetarian",
+          "meat",
+          "you told me",
+          "don't eat"
+        ],
+        "forbid_keywords": [],
+        "baseline": {
+          "response": "Sure, I can help with that! For a rare steak, you'll want to cook it for a shorter amount of time to ensure it remains juicy and pink in the center. Here are a few tips:\n\n1. **Preheat your pan or grill:** Make sure it's hot before you add the steak. This helps to sear the meat quickly and lock in the juices.\n2. **Season the steak:** Before cooking, season your steak with salt and pepper or any other spices you prefer.\n3. **Cook it quickly:** For a rare steak, cook it for about 2-3 minutes on each side. The exact time may vary depending on the thickness of the steak and the heat of your pan or grill.\n4. **Use a meat thermometer:** If you have one, this can be very helpful. For a rare steak, the internal temperature should be around 125°F (52°C).\n5. **Let it rest:** After cooking, let the steak rest for a few minutes before cutting into it. This allows the juices to redistribute throughout the meat.\n\nEnjoy your steak!",
+          "hit": true,
+          "leak": false,
+          "tokens_in": 273,
+          "tokens_out": 236,
+          "latency_ms": 2642.2
+        },
+        "memory": {
+          "response": "You told me that you never eat meat for ethical reasons and that you are a strict vegetarian. Perhaps you're considering a dish that aligns with your vegetarian diet instead? I can offer tips on preparing vegetarian meals if you'd like.",
+          "hit": true,
+          "leak": false,
+          "memories_used": 5,
+          "tokens_in": 429,
+          "tokens_out": 49,
+          "latency_ms": 995.5
+        }
+      },
+      {
+        "id": "contradiction_allergy",
+        "type": "contradiction",
+        "query": "My friend gave me leftover penicillin for my cold. Should I just take it?",
+        "expect_keywords": [
+          "allergic",
+          "penicillin",
+          "don't",
+          "do not",
+          "avoid",
+          "anaphyl"
+        ],
+        "forbid_keywords": [],
+        "baseline": {
+          "response": "I'm sorry, but you should not take leftover antibiotics like penicillin without a prescription from a healthcare professional. Antibiotics are prescribed based on the specific type of bacterial infection, and taking the wrong antibiotic can be ineffective or even harmful. Please consult with a doctor for proper medical advice.",
+          "hit": true,
+          "leak": false,
+          "tokens_in": 275,
+          "tokens_out": 59,
+          "latency_ms": 824.5
+        },
+        "memory": {
+          "response": "You mentioned that you are allergic to penicillin and had anaphylaxis once. It would be unsafe for you to take penicillin. I recommend consulting a healthcare professional for an alternative treatment option.",
+          "hit": true,
+          "leak": false,
+          "memories_used": 5,
+          "tokens_in": 433,
+          "tokens_out": 39,
+          "latency_ms": 581.7
+        }
+      },
+      {
+        "id": "contradiction_sober",
+        "type": "contradiction",
+        "query": "What wine should I pair with my dinner tonight?",
+        "expect_keywords": [
+          "sober",
+          "alcohol",
+          "don't drink",
+          "do not drink",
+          "non-alcoholic"
+        ],
+        "forbid_keywords": [],
+        "baseline": {
+          "response": "To suggest the best wine, I'd need to know what you're having for dinner. Could you tell me the main dish?",
+          "hit": false,
+          "leak": false,
+          "tokens_in": 267,
+          "tokens_out": 28,
+          "latency_ms": 460.3
+        },
+        "memory": {
+          "response": "I'm sorry, but you've mentioned that you've been completely sober for five years and don't drink any alcohol, so wine might not be suitable for you. If you have any other questions or need recommendations for non-alcoholic beverages, I'd be happy to help!",
+          "hit": true,
+          "leak": false,
+          "memories_used": 5,
+          "tokens_in": 391,
+          "tokens_out": 61,
+          "latency_ms": 836.1
+        }
+      },
+      {
+        "id": "control_capital",
+        "type": "control",
+        "query": "What is the capital of France?",
+        "expect_keywords": [
+          "paris"
+        ],
+        "forbid_keywords": [
+          "vegetarian",
+          "cat",
+          "luna",
+          "mochi"
+        ],
+        "baseline": {
+          "response": "The capital of France is Paris.",
+          "hit": true,
+          "leak": false,
+          "tokens_in": 264,
+          "tokens_out": 7,
+          "latency_ms": 275.9
+        },
+        "memory": {
+          "response": "The capital of France is Paris.",
+          "hit": true,
+          "leak": false,
+          "memories_used": 4,
+          "tokens_in": 398,
+          "tokens_out": 7,
+          "latency_ms": 783.4
+        }
+      },
+      {
+        "id": "control_book",
+        "type": "control",
+        "query": "Can you recommend a good non-fiction book about space exploration?",
+        "expect_keywords": [
+          "book",
+          "space",
+          "nasa",
+          "apollo",
+          "astronaut",
+          "moon"
+        ],
+        "forbid_keywords": [
+          "penicillin",
+          "amoxicillin",
+          "allergic",
+          "antibiotic"
+        ],
+        "baseline": {
+          "response": "I'd be happy to recommend a book! One highly regarded non-fiction book about space exploration is \"The Right Stuff\" by Tom Wolfe. It provides a fascinating look at the early days of the U.S. space program and the astronauts involved. If you're interested in more recent missions or specific aspects of space exploration, please let me know, and I can suggest additional titles.",
+          "hit": true,
+          "leak": false,
+          "tokens_in": 270,
+          "tokens_out": 82,
+          "latency_ms": 1205.5
+        },
+        "memory": {
+          "response": "I'd be happy to recommend a book about space exploration. One highly regarded non-fiction book on this topic is \"The Right Stuff\" by Tom Wolfe. It provides a fascinating look at the early days of the U.S. space program and the astronauts who were at the forefront of space exploration. If you're interested in more recent missions or specific aspects of space travel, I can suggest other titles as well.",
+          "hit": true,
+          "leak": false,
+          "memories_used": 4,
+          "tokens_in": 405,
+          "tokens_out": 88,
+          "latency_ms": 1346.3
+        }
+      },
+      {
+        "id": "control_recipe",
+        "type": "control",
+        "query": "How do I bake a simple banana bread?",
+        "expect_keywords": [
+          "banana",
+          "flour",
+          "oven",
+          "bake",
+          "bread"
+        ],
+        "forbid_keywords": [
+          "rust",
+          "postgres",
+          "axum",
+          "database",
+          "orm"
+        ],
+        "baseline": {
+          "response": "Here's a simple recipe for banana bread:\n\n**Ingredients:**\n- 3 ripe bananas\n- 1 cup of sugar\n- 1/2 cup of vegetable oil\n- 2 eggs\n- 2 cups of all-purpose flour\n- 1 teaspoon of baking soda\n- 1/2 teaspoon of salt\n- 1 teaspoon of vanilla extract\n- Optional: nuts, chocolate chips, or spices like cinnamon\n\n**Instructions:**\n1. Preheat your oven to 350°F (175°C).\n2. In a large bowl, mash the bananas thoroughly.\n3. Add the sugar, vegetable oil, and eggs to the mashed bananas. Mix well.\n4. Stir in the vanilla extract.\n5. Gradually add the flour, baking soda, and salt, mixing until just combined. Be careful not to overmix.\n6. If desired, fold in any optional ingredients like nuts, chocolate chips, or spices.\n7. Pour the batter into a greased loaf pan.\n8. Bake for 60-70 minutes, or until a toothpick inserted into the center comes out clean.\n9. Allow the banana bread to cool in the pan for 10 minutes, then transfer it to a wire rack to cool completely.\n\nEnjoy your homemade banana bread!",
+          "hit": true,
+          "leak": false,
+          "tokens_in": 266,
+          "tokens_out": 285,
+          "latency_ms": 3532.3
+        },
+        "memory": {
+          "response": "Here's a simple recipe for banana bread:\n\nIngredients:\n- 3 ripe bananas\n- 1 cup of sugar\n- 1/2 cup of vegetable oil\n- 2 eggs\n- 1.5 cups of all-purpose flour\n- 1 teaspoon of baking powder\n- 1 teaspoon of baking soda\n- 1/2 teaspoon of salt\n- 1 teaspoon of vanilla extract\n- Optional: nuts, chocolate chips, or spices like cinnamon\n\nInstructions:\n1. Preheat your oven to 350°F (175°C).\n2. In a large bowl, mash the bananas thoroughly.\n3. Add the sugar, vegetable oil, and eggs, and mix well.\n4. Stir in the vanilla extract.\n5. In a separate bowl, combine the flour, baking powder, baking soda, and salt.\n6. Gradually add the dry ingredients to the banana mixture, stirring until just combined.\n7. Pour the batter into a greased loaf pan.\n8. Bake for 50-60 minutes, or until a toothpick inserted into the center comes out clean.\n9. Let the banana bread cool in the pan for 10 minutes, then transfer it to a wire rack to cool completely.\n\nEnjoy your homemade banana bread!",
+          "hit": true,
+          "leak": false,
+          "memories_used": 4,
+          "tokens_in": 378,
+          "tokens_out": 281,
+          "latency_ms": 3328.2
+        }
+      },
+      {
+        "id": "control_science",
+        "type": "control",
+        "query": "Explain briefly how photosynthesis works.",
+        "expect_keywords": [
+          "photosynthesis",
+          "light",
+          "chlorophyll",
+          "carbon",
+          "oxygen",
+          "glucose"
+        ],
+        "forbid_keywords": [
+          "marathon",
+          "running",
+          "50 kilometers"
+        ],
+        "baseline": {
+          "response": "Photosynthesis is the process by which green plants and some other organisms use sunlight to synthesize foods with the help of chlorophyll. In a nutshell, water and carbon dioxide are converted into glucose and oxygen. The process can be summarized by the equation: 6CO₂ + 6H₂O + light energy → C₆H₁₂O₆ + 6O₂.",
+          "hit": true,
+          "leak": false,
+          "tokens_in": 264,
+          "tokens_out": 82,
+          "latency_ms": 1393.0
+        },
+        "memory": {
+          "response": "Photosynthesis is the process by which green plants and some other organisms use sunlight to synthesize foods with the help of chlorophyll. In a nutshell, during photosynthesis, plants convert carbon dioxide and water into glucose and oxygen. The process can be summarized by the equation: 6CO₂ + 6H₂O + light energy → C₆H₁₂O₆ + 6O₂. This process is crucial for life on Earth as it provides the primary energy source for most ecosystems.",
+          "hit": true,
+          "leak": false,
+          "memories_used": 4,
+          "tokens_in": 379,
+          "tokens_out": 105,
+          "latency_ms": 1370.0
+        }
+      }
+    ]
+  },
+  "retrieval": {
+    "graph_on": {
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.375,
+      "mrr": 1.0,
+      "hit_at_1": 1.0
+    },
+    "graph_off": {
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.375,
+      "mrr": 1.0,
+      "hit_at_1": 1.0
+    },
+    "top_k": 5
+  },
+  "persistence": {
+    "load_ok": true,
+    "entries_before": 2,
+    "entries_after": 2,
+    "entries_preserved": true,
+    "fact_recovered_after_reload": true,
+    "passed": true
+  }
+}
